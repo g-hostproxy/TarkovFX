@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'">
+<title>TarkovFX</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <!-- title bar -->
+  <header class="titlebar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+        <path d="M16 2 29 9.5v13L16 30 3 22.5v-13Z" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <path d="M8 16h3l2-5 3 10 3-8 2 3h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>
+      </svg>
+      <span class="brand-name">TARKOV<span class="slash">//</span>FX</span>
+      <span class="brand-sub">AUDIO HELPER</span>
+    </div>
+    <div class="drag"></div>
+    <div class="tb-status"><span class="led" id="tbLed"></span><span id="tbStatus">INITIALIZING</span></div>
+    <div class="winctl">
+      <button id="wMin" title="Minimize"><svg viewBox="0 0 10 10"><path d="M1 5h8"/></svg></button>
+      <button id="wMax" title="Maximize"><svg viewBox="0 0 10 10"><rect x="1.5" y="1.5" width="7" height="7"/></svg></button>
+      <button id="wClose" class="close" title="Close"><svg viewBox="0 0 10 10"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7"/></svg></button>
+    </div>
+  </header>
+
+  <div class="body">
+    <!-- presets sidebar -->
+    <aside class="sidebar panel">
+      <div class="side-head"><span class="label">Presets</span><span class="count" id="presetCount"></span></div>
+      <div class="preset-scroll" id="presetList"></div>
+      <div class="preset-actions">
+        <button class="btn" id="pSave">Save</button>
+        <button class="btn" id="pSaveAs">Save as</button>
+        <button class="btn" id="pRename">Rename</button>
+        <button class="btn" id="pDup">Duplicate</button>
+        <button class="btn" id="pImport">Import</button>
+        <button class="btn" id="pExport">Export</button>
+        <button class="btn danger wide" id="pDelete">Delete preset</button>
+      </div>
+      <div class="hk-card">
+        <div class="label">Hotkeys</div>
+        <div class="hk-row"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>1-9</kbd><span>Preset slot</span></div>
+        <div class="hk-row" id="hkBypassRow"></div>
+        <div class="hk-row" id="hkNextRow"></div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <!-- preset header -->
+      <section class="panel hero">
+        <div class="hero-left">
+          <div class="eyebrow"><span id="heroKind">FACTORY PRESET</span><span class="tag mod" id="modTag" hidden>MODIFIED</span></div>
+          <h1 id="heroName">Operator</h1>
+          <p id="heroNote"></p>
+        </div>
+        <div class="hero-right">
+          <label class="switch-row" title="Write every change to Equalizer APO immediately">
+            <span>Live apply</span><input type="checkbox" id="liveApply"><i class="sw"></i>
+          </label>
+          <div class="hero-btns">
+            <button class="btn" id="revertBtn">Revert</button>
+            <button class="btn primary" id="applyBtn">Apply</button>
+          </div>
+          <button class="bypass" id="bypassBtn"><span class="bp-led"></span><span class="bp-text">FX ACTIVE</span><span class="bp-sub">click to bypass</span></button>
+        </div>
+      </section>
+
+      <!-- signal chain -->
+      <nav class="chain" id="chain">
+        <div class="node" data-mod="preamp" data-tab="eq"><i class="led"></i><b>Preamp</b><small id="chPre"></small><button class="pwr" title="Enable / disable"></button></div>
+        <span class="wire"></span>
+        <div class="node" data-mod="eq" data-tab="eq"><i class="led"></i><b>Graphic EQ</b><small>15 band</small><button class="pwr"></button></div>
+        <span class="wire"></span>
+        <div class="node" data-mod="reacomp" data-tab="comp"><i class="led"></i><b>ReaComp</b><small id="chComp"></small><button class="pwr"></button></div>
+        <span class="wire"></span>
+        <div class="node" data-mod="loudmax" data-tab="lim"><i class="led"></i><b>LoudMax</b><small>limiter</small><button class="pwr"></button></div>
+        <span class="wire"></span>
+        <div class="node out"><i class="led"></i><b>Output</b><small>headset</small></div>
+      </nav>
+
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-tab="eq">Equalizer</button>
+        <button class="tab" data-tab="comp">Compressor</button>
+        <button class="tab" data-tab="lim">Limiter</button>
+        <button class="tab" data-tab="setup">Setup <span class="tab-dot" id="setupDot" hidden></span></button>
+        <button class="tab" data-tab="settings">Settings</button>
+      </div>
+
+      <!-- EQ -->
+      <section class="tabpane panel active" id="tab-eq">
+        <div class="pane-head">
+          <div><span class="label">Frequency response</span><span class="hint">Drag the points or the sliders. Scroll to nudge. Double-click to reset a band.</span></div>
+          <div class="pane-tools">
+            <span class="clip" id="clipWarn" hidden>CLIP RISK +<b id="clipDb">0</b> dB</span>
+            <button class="btn sm" id="eqFlat">Flatten</button>
+            <button class="btn sm" id="eqMinus">−1 dB all</button>
+            <button class="btn sm" id="eqPlus">+1 dB all</button>
+          </div>
+        </div>
+        <div class="graph-wrap"><canvas id="eqGraph"></canvas></div>
+        <div class="bands">
+          <div class="band preamp" id="preampBand">
+            <div class="bval" id="preVal">0</div>
+            <input type="range" class="vrange" id="preRange" min="-20" max="20" step="0.1">
+            <div class="bfreq">PRE</div>
+          </div>
+          <div class="band-sep"></div>
+          <div class="band-grid" id="bands"></div>
+        </div>
+      </section>
+
+      <!-- Compressor -->
+      <section class="tabpane panel" id="tab-comp">
+        <div class="pane-head">
+          <div><span class="label">ReaComp // dynamics</span><span class="hint">Compression brings quiet sounds like footsteps closer to loud ones.</span></div>
+          <div class="pane-tools"><button class="btn sm" id="compReset">Reset to Operator</button><button class="btn sm ghost" id="compRawBtn">Raw values</button></div>
+        </div>
+        <div class="dyn">
+          <div class="dyn-viz">
+            <canvas id="compGraph"></canvas>
+            <div class="viz-cap"><span>IN →</span><span>transfer curve</span><span>↑ OUT</span></div>
+          </div>
+          <div class="ctl-grid" id="compCtls"></div>
+        </div>
+        <div class="toggles" id="compToggles"></div>
+        <div class="raw" id="compRaw" hidden></div>
+      </section>
+
+      <!-- Limiter -->
+      <section class="tabpane panel" id="tab-lim">
+        <div class="pane-head">
+          <div><span class="label">LoudMax // brickwall limiter</span><span class="hint">Catches gunshots and grenades so they don't blow your ears out.</span></div>
+          <div class="pane-tools"><button class="btn sm" id="limReset">Reset to Operator</button><button class="btn sm ghost" id="limRawBtn">Raw values</button></div>
+        </div>
+        <div class="lim">
+          <div class="meter-pair" id="limMeters"></div>
+          <div class="ctl-grid one" id="limCtls"></div>
+        </div>
+        <div class="toggles" id="limToggles"></div>
+        <p class="fineprint">LoudMax values are the plugin's own slider positions (0–100%), the same numbers Equalizer APO stores. Your original config uses 30% threshold and 97% output.</p>
+        <div class="raw" id="limRaw" hidden></div>
+      </section>
+
+      <!-- Setup -->
+      <section class="tabpane panel" id="tab-setup">
+        <div class="pane-head">
+          <div><span class="label">Deployment checklist</span><span class="hint">Everything TarkovFX needs. Green means you're good to drop in.</span></div>
+          <div class="pane-tools"><button class="btn sm" id="recheck">Re-scan</button></div>
+        </div>
+        <div class="checks" id="checks"></div>
+        <div class="pane-head sub"><span class="label">Generated config</span><span class="hint" id="outPath"></span></div>
+        <pre class="code" id="cfgPreview"></pre>
+      </section>
+
+      <!-- Settings -->
+      <section class="tabpane panel" id="tab-settings">
+        <div class="settings">
+          <div class="set-col">
+            <div class="label">Behaviour</div>
+            <label class="switch-row"><span>Live apply changes</span><input type="checkbox" id="sLive"><i class="sw"></i></label>
+            <label class="switch-row"><span>Close button hides to tray</span><input type="checkbox" id="sTray"><i class="sw"></i></label>
+            <label class="switch-row"><span>Start minimized</span><input type="checkbox" id="sMin"><i class="sw"></i></label>
+            <label class="switch-row"><span>Ctrl+Alt+1–9 preset slots</span><input type="checkbox" id="sSlots"><i class="sw"></i></label>
+          </div>
+          <div class="set-col">
+            <div class="label">Global hotkeys <span class="hint">Click a box, then press the keys</span></div>
+            <div class="hk-edit"><span>Bypass toggle</span><input class="hk-input" data-hk="bypass" readonly></div>
+            <div class="hk-edit"><span>Next preset</span><input class="hk-input" data-hk="next" readonly></div>
+            <div class="hk-edit"><span>Previous preset</span><input class="hk-input" data-hk="prev" readonly></div>
+            <div class="hk-msg" id="hkMsg"></div>
+          </div>
+          <div class="set-col">
+            <div class="label">Equalizer APO</div>
+            <p class="fineprint">TarkovFX writes <code>TarkovFX.txt</code> to the APO config folder and adds an Include line to <code>config.txt</code>. Your original config.txt was backed up when you hooked it.</p>
+            <div class="btn-row">
+              <button class="btn" id="openCfgFolder">Open config folder</button>
+              <button class="btn danger" id="unhookBtn">Unhook and restore original</button>
+            </div>
+            <div class="label" style="margin-top:22px">About</div>
+            <p class="fineprint" id="aboutTxt">TarkovFX. Not affiliated with Battlestate Games, Cockos or LoudMax.</p>
+            <button class="btn" id="quitBtn">Quit TarkovFX</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer class="statusbar">
+    <span class="led" id="sbLed"></span><span id="sbMain">—</span>
+    <span class="sb-sep"></span><span id="sbPath"></span>
+    <span class="sb-grow"></span><span id="sbTime"></span>
+  </footer>
+</div>
+
+<div class="modal-back" id="modal" hidden>
+  <div class="modal panel">
+    <div class="label" id="mTitle"></div>
+    <p id="mText"></p>
+    <input id="mInput" class="text-input" spellcheck="false">
+    <div class="btn-row end"><button class="btn" id="mCancel">Cancel</button><button class="btn primary" id="mOk">OK</button></div>
+  </div>
+</div>
+<div class="toasts" id="toasts"></div>
+
+<script src="../core/model.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
