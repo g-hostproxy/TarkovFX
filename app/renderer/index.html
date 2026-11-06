@@ -53,7 +53,7 @@
       <!-- preset header -->
       <section class="panel hero">
         <div class="hero-left">
-          <div class="eyebrow"><span id="heroKind">FACTORY PRESET</span><span class="tag mod" id="modTag" hidden>MODIFIED</span></div>
+          <div class="eyebrow"><span id="heroKind">FACTORY PRESET</span><span class="tag mod" id="modTag" hidden>MODIFIED</span><span class="tag lock" id="lockTag" hidden>LOCKED</span></div>
           <h1 id="heroName">Operator</h1>
           <p id="heroNote"></p>
         </div>
@@ -70,7 +70,17 @@
       </section>
 
       <!-- signal chain -->
-      <nav class="chain" id="chain">
+      <div class="devbar" id="devBar" hidden>
+        <span class="led bad"></span>
+        <span class="db-text"><b id="devTitle">Equalizer APO isn't active on your headset.</b> <span id="devText"></span></span>
+        <span class="db-btns" id="devBtns"></span>
+      </div>
+      <div class="lockbar" id="lockBar" hidden>
+        <span class="lb-icon"></span>
+        <span><b>Locked preset.</b> You can audition it, apply it and bypass it, but you can't change it. Duplicate it to make an editable copy.</span>
+        <button class="btn sm" id="lockDup">Duplicate to edit</button>
+      </div>
+      <nav class="chain lockable" id="chain">
         <div class="node" data-mod="preamp" data-tab="eq"><i class="led"></i><b>Preamp</b><small id="chPre"></small><button class="pwr" title="Enable / disable"></button></div>
         <span class="wire"></span>
         <div class="node" data-mod="eq" data-tab="eq"><i class="led"></i><b>Graphic EQ</b><small>15 band</small><button class="pwr"></button></div>
@@ -96,13 +106,13 @@
           <div><span class="label">Frequency response</span><span class="hint">Drag the points or the sliders. Scroll to nudge. Double-click to reset a band.</span></div>
           <div class="pane-tools">
             <span class="clip" id="clipWarn" hidden>CLIP RISK +<b id="clipDb">0</b> dB</span>
-            <button class="btn sm" id="eqFlat">Flatten</button>
-            <button class="btn sm" id="eqMinus">−1 dB all</button>
-            <button class="btn sm" id="eqPlus">+1 dB all</button>
+            <button class="btn sm lockable" id="eqFlat">Flatten</button>
+            <button class="btn sm lockable" id="eqMinus">−1 dB all</button>
+            <button class="btn sm lockable" id="eqPlus">+1 dB all</button>
           </div>
         </div>
-        <div class="graph-wrap"><canvas id="eqGraph"></canvas></div>
-        <div class="bands">
+        <div class="lockable graph-wrap"><canvas id="eqGraph"></canvas></div>
+        <div class="lockable bands">
           <div class="band preamp" id="preampBand">
             <div class="bval" id="preVal">0</div>
             <input type="range" class="vrange" id="preRange" min="-20" max="20" step="0.1">
@@ -117,32 +127,32 @@
       <section class="tabpane panel" id="tab-comp">
         <div class="pane-head">
           <div><span class="label">ReaComp // dynamics</span><span class="hint">Compression brings quiet sounds like footsteps closer to loud ones.</span></div>
-          <div class="pane-tools"><button class="btn sm" id="compReset">Reset to Operator</button><button class="btn sm ghost" id="compRawBtn">Raw values</button></div>
+          <div class="pane-tools"><button class="btn sm lockable" id="compReset">Reset to Operator</button><button class="btn sm ghost" id="compRawBtn">Raw values</button></div>
         </div>
         <div class="dyn">
           <div class="dyn-viz">
             <canvas id="compGraph"></canvas>
             <div class="viz-cap"><span>IN →</span><span>transfer curve</span><span>↑ OUT</span></div>
           </div>
-          <div class="ctl-grid" id="compCtls"></div>
+          <div class="lockable ctl-grid" id="compCtls"></div>
         </div>
-        <div class="toggles" id="compToggles"></div>
-        <div class="raw" id="compRaw" hidden></div>
+        <div class="lockable toggles" id="compToggles"></div>
+        <div class="lockable raw" id="compRaw" hidden></div>
       </section>
 
       <!-- Limiter -->
       <section class="tabpane panel" id="tab-lim">
         <div class="pane-head">
           <div><span class="label">LoudMax // brickwall limiter</span><span class="hint">Catches gunshots and grenades so they don't blow your ears out.</span></div>
-          <div class="pane-tools"><button class="btn sm" id="limReset">Reset to Operator</button><button class="btn sm ghost" id="limRawBtn">Raw values</button></div>
+          <div class="pane-tools"><button class="btn sm lockable" id="limReset">Reset to Operator</button><button class="btn sm ghost" id="limRawBtn">Raw values</button></div>
         </div>
         <div class="lim">
           <div class="meter-pair" id="limMeters"></div>
-          <div class="ctl-grid one" id="limCtls"></div>
+          <div class="lockable ctl-grid one" id="limCtls"></div>
         </div>
-        <div class="toggles" id="limToggles"></div>
+        <div class="lockable toggles" id="limToggles"></div>
         <p class="fineprint">LoudMax values are the plugin's own slider positions (0–100%), the same numbers Equalizer APO stores. Your original config uses 30% threshold and 97% output.</p>
-        <div class="raw" id="limRaw" hidden></div>
+        <div class="lockable raw" id="limRaw" hidden></div>
       </section>
 
       <!-- Setup -->

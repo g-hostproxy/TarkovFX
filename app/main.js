@@ -16,7 +16,7 @@ const storePath = () => path.join(app.getPath('userData'), 'tarkovfx.json');
 
 /* ------------------------------------------------------------------ store */
 const DEFAULT_STORE = {
-  presets: [], active: 'Operator', bypass: false,
+  presets: [], active: 'TarkovFX Pro', bypass: false,
   plugins: { reacomp: '', loudmax: '' },
   settings: { liveApply: true, closeToTray: true, startMinimized: false,
     hotkeys: { bypass: 'Control+Alt+B', next: 'Control+Alt+N', prev: 'Control+Alt+P', slots: true } },
@@ -104,6 +104,35 @@ function runElevated(file, args) {
   return run('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', ps]);
 }
 
+/* ---- is Equalizer APO actually active on the current output device? ---- */
+let devCache = null, devAt = 0, devPending = null;
+function devLabel(d) { return d.name && d.device ? d.name + ' (' + d.device + ')' : d.device || d.name || 'Unknown device'; }
+function summarizeDevices(j) {
+  const raw = Array.isArray(j.devices) ? j.devices : j.devices ? [j.devices] : [];
+  const devices = raw.map((d) => ({ guid: String(d.guid || '').toUpperCase(), name: d.name || '', device: d.device || '',
+    label: devLabel(d), installed: !!d.installed, enhancementsDisabled: !!d.enhancementsDisabled }));
+  const current = devices.find((d) => d.guid && d.guid === String(j.defaultGuid || '').toUpperCase()) || null;
+  // null = couldn't tell (never show a warning we aren't sure about)
+  const active = current ? current.installed && !current.enhancementsDisabled : null;
+  return { current, devices, active, checkedAt: Date.now() };
+}
+function deviceCheck(force) {
+  if (process.platform !== 'win32') return Promise.resolve(null);
+  if (!force && devCache && Date.now() - devAt < 4000) return Promise.resolve(devCache);
+  if (devPending) return devPending;
+  let enc;
+  try { enc = Buffer.from(fs.readFileSync(path.join(__dirname, 'core', 'devicecheck.ps1'), 'utf8'), 'utf16le').toString('base64'); }
+  catch { return Promise.resolve(null); }
+  devPending = run('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', enc], { timeout: 20000 })
+    .then((r) => {
+      let res = null;
+      try { const j = JSON.parse(r.stdout.trim().split(/\r?\n/).pop()); if (j && j.ok) res = summarizeDevices(j); } catch { /* unknown */ }
+      devCache = res; devAt = Date.now(); devPending = null;
+      return res;
+    });
+  return devPending;
+}
+
 async function status() {
   const apo = await findApo(true);
   const out = { platform: process.platform, apo, writable: false, hooked: false, configTxt: null,
@@ -122,6 +151,7 @@ async function status() {
     out.editor = exists(path.join(apo.install, 'Editor.exe')) ? path.join(apo.install, 'Editor.exe') : null;
   }
   for (const k of ['reacomp', 'loudmax']) { const p = findPlugin(k, apo); out.plugins[k] = { found: !!p, path: p }; }
+  out.device = apo.installed ? await deviceCheck(true) : null;
   return out;
 }
 
@@ -275,6 +305,12 @@ function ipc() {
       } catch (err) { warnings.push(path.basename(f) + ': ' + err.message); }
     }
     return { ok: true, presets, warnings };
+  });
+  ipcMain.handle('apo:deviceCheck', (_e, force) => deviceCheck(!!force));
+  ipcMain.handle('open:soundPanel', () => { execFile('control.exe', ['mmsys.cpl'], { windowsHide: false }, () => {}); });
+  ipcMain.handle('apo:restartAudio', async () => {
+    await runElevated('powershell.exe', '-NoProfile -WindowStyle Hidden -Command Restart-Service -Force Audiosrv');
+    return { ok: true };
   });
   ipcMain.handle('open:url', (_e, url) => { if (/^https:\/\//.test(url)) shell.openExternal(url); });
   ipcMain.handle('open:path', (_e, p) => { if (p && exists(p)) shell.openPath(p); });

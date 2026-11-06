@@ -16,7 +16,7 @@ const h = (tag, attrs, ...kids) => {
 const api = window.tfx || mockApi();
 
 const S = { builtins: [], presets: [], active: 'Operator', work: null, savedJson: '', bypass: false,
-  settings: {}, status: null, applyTimer: null, lastApply: null, tab: 'eq', showRaw: { comp: false, lim: false } };
+  settings: {}, status: null, dev: null, devWasActive: null, applyTimer: null, lastApply: null, tab: 'eq', showRaw: { comp: false, lim: false } };
 
 const all = () => S.builtins.concat(S.presets);
 const findPreset = (n) => all().find((p) => p.name.toLowerCase() === String(n).toLowerCase());
@@ -34,12 +34,15 @@ const fmtDb = (v) => (v <= -59.9 ? '−∞' : (v > 0 ? '+' : '') + v.toFixed(1))
   $('aboutTxt').textContent = 'TarkovFX v' + (r.version || '1.0.0') + '. Drives Equalizer APO with a graphic EQ, ReaComp and LoudMax. Not affiliated with Battlestate Games, Cockos or LoudMax.';
   wireStatic();
   buildBands(); buildCompCtls(); buildLimCtls();
-  select(findPreset(r.store.active) ? r.store.active : 'Operator', { apply: false });
+  select(findPreset(r.store.active) ? r.store.active : S.builtins[0].name, { apply: false });
   await refreshStatus();
   if (S.status && S.status.apo.installed && S.status.hooked) apply(); // sync APO to the active preset
   if (S.status && setupProblems() > 0) showTab('setup');
   window.addEventListener('resize', () => { drawEq(); drawComp(); });
   api.onHotkey(onHotkey);
+  // re-check the output device when the window gets focus and every 90 s (headset swaps, driver updates)
+  window.addEventListener('focus', () => checkDevice(true));
+  setInterval(() => checkDevice(true), 90000);
 })();
 
 /* ---------------------------------------------------------------- presets */
@@ -65,7 +68,7 @@ async function saveAs(defaultName) {
   const name = await prompt('Save preset as', 'Give this setup a callsign.', uniqueName(defaultName || S.work.name + ' (custom)'));
   if (!name) return;
   if (findPreset(name)) return toast('A preset called "' + name + '" already exists.', 'bad');
-  const p = Object.assign(TFX.clone(S.work), { name, builtin: false });
+  const p = Object.assign(TFX.clone(S.work), { name, builtin: false, locked: false });
   S.presets.push(p); select(name, { apply: false }); toast('Saved "' + name + '"', 'ok');
 }
 async function savePreset() {
@@ -86,7 +89,7 @@ async function renamePreset() {
 async function deletePreset() {
   const cur = findPreset(S.active); if (cur.builtin) return toast('Factory presets can\'t be deleted.', 'bad');
   if (!(await confirmBox('Delete preset', 'Delete "' + cur.name + '"? This can\'t be undone.'))) return;
-  S.presets = S.presets.filter((p) => p !== cur); select('Operator'); toast('Deleted "' + cur.name + '"');
+  S.presets = S.presets.filter((p) => p !== cur); select(S.builtins[0].name); toast('Deleted "' + cur.name + '"');
 }
 async function importPresets() {
   const r = await api.importPresets(); if (!r.ok) return;
@@ -102,6 +105,10 @@ async function exportPreset() {
 
 /* ---------------------------------------------------------------- apply */
 function changed() {
+  if (S.work.locked) { // safety net: locked presets can never be edited
+    S.work = TFX.clone(findPreset(S.active)); renderAll();
+    return toast('TarkovFX Pro is locked. Duplicate it to make your own version.', 'bad');
+  }
   renderDirty(); renderChain(); renderPresetList();
   if (S.settings.liveApply) { clearTimeout(S.applyTimer); S.applyTimer = setTimeout(apply, 140); }
   else setStatusBar('warn', 'UNAPPLIED CHANGES', 'Press Apply to send them to Equalizer APO');
@@ -112,7 +119,8 @@ async function apply() {
   const r = await api.apply(TFX.clone(S.work), S.bypass);
   if (r.ok) {
     S.lastApply = r.at;
-    setStatusBar(S.bypass ? 'bad' : 'ok', S.bypass ? 'BYPASSED · all FX commented out' : 'LIVE · ' + S.work.name, r.path);
+    if (S.dev && S.dev.active === false) setStatusBar('warn', 'SAVED · APO NOT ACTIVE ON ' + (S.dev.current.device || S.dev.current.name).toUpperCase(), 'Your changes won\'t be heard until Equalizer APO is installed on this device');
+    else setStatusBar(S.bypass ? 'bad' : 'ok', S.bypass ? 'BYPASSED · all FX commented out' : 'LIVE · ' + S.work.name, r.path);
   } else {
     setStatusBar('bad', 'WRITE FAILED', r.error);
     if (!apply.warned) { toast(r.error, 'bad'); apply.warned = true; setTimeout(() => (apply.warned = false), 8000); }
@@ -139,8 +147,14 @@ function onHotkey(d) {
 /* ---------------------------------------------------------------- render */
 function renderAll() {
   renderPresetList(); renderHero(); renderDirty(); renderBypass(); renderChain();
-  syncBands(); drawEq(); syncComp(); drawComp(); syncLim();
+  syncBands(); drawEq(); syncComp(); drawComp(); syncLim(); applyLock();
   if (S.tab === 'setup') renderPreview();
+}
+function applyLock() {
+  const L = !!S.work.locked;
+  document.body.classList.toggle('is-locked', L);
+  $('lockTag').hidden = $('lockBar').hidden = !L;
+  document.querySelectorAll('.lockable input, .lockable button').forEach((el) => { el.disabled = L; });
 }
 function renderPresetList() {
   const box = $('presetList'); box.innerHTML = '';
@@ -152,6 +166,7 @@ function renderPresetList() {
     } },
     h('span', { class: 'slot' }, idx < 9 ? String(idx + 1) : '·'),
     h('span', { class: 'pname' }, p.name + (p.name === S.active && isDirty() ? ' *' : '')),
+    p.locked ? h('span', { class: 'lock', title: 'Locked preset' }, LOCK_SVG()) : null,
     miniCurve(p.name === S.active ? S.work : p));
   box.append(h('div', { class: 'group-title' }, 'Factory'));
   S.builtins.forEach((p) => box.append(item(p, list.indexOf(p))));
@@ -161,6 +176,11 @@ function renderPresetList() {
   $('presetCount').textContent = String(list.length).padStart(2, '0');
   const cur = findPreset(S.active);
   $('pRename').disabled = $('pDelete').disabled = !cur || cur.builtin;
+}
+function LOCK_SVG() {
+  const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 12 14');
+  s.innerHTML = '<rect x="1.5" y="6" width="9" height="7" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M3.5 6V4a2.5 2.5 0 0 1 5 0v2" fill="none" stroke="currentColor" stroke-width="1.4"/>';
+  return s;
 }
 function miniCurve(p) {
   const w = 46, hgt = 18, g = p.eq.bands.map((b) => b.g);
@@ -173,7 +193,7 @@ function miniCurve(p) {
 function renderHero() {
   const cur = findPreset(S.active), idx = all().indexOf(cur);
   $('heroName').textContent = S.work.name;
-  $('heroKind').textContent = (cur.builtin ? 'FACTORY PRESET' : 'YOUR PRESET') + (idx < 9 ? '  ·  SLOT ' + (idx + 1) : '');
+  $('heroKind').textContent = (cur.locked ? 'FLAGSHIP PRESET' : cur.builtin ? 'FACTORY PRESET' : 'YOUR PRESET') + (idx < 9 ? '  ·  SLOT ' + (idx + 1) : '');
   $('heroNote').textContent = S.work.note || (cur.builtin ? '' : 'Custom preset.');
 }
 function renderDirty() {
@@ -197,9 +217,10 @@ function renderChain() {
   }
   $('chPre').textContent = (w.preamp.db > 0 ? '+' : '') + w.preamp.db.toFixed(1) + ' dB';
   $('chComp').textContent = st && !st.plugins.reacomp.found ? 'DLL missing'
-    : M.ampToDb(w.reacomp.params.Thresh).toFixed(0) + ' dB · ' + M.ratioFromNorm(w.reacomp.params.Ratio).toFixed(1) + ':1';
+    : M.ampToDb(w.reacomp.params.Thresh).toFixed(0) + ' dB · ' + M.ratioFromNorm(w.reacomp.params.Ratio).toFixed(1) + ':1'
+      + (w.makeup && w.makeup.enabled ? ' · +' + w.makeup.db.toFixed(0) : '');
   const outLed = document.querySelector('.chain .node.out .led');
-  outLed.className = 'led ' + (st && st.apo.installed && st.hooked ? 'ok' : 'warn');
+  outLed.className = 'led ' + (S.dev && S.dev.active === false ? 'bad' : st && st.apo.installed && st.hooked ? 'ok' : 'warn');
 }
 function setStatusBar(kind, main, sub) {
   $('sbLed').className = 'led ' + kind; $('sbMain').textContent = main; $('sbPath').textContent = sub || '';
@@ -336,6 +357,9 @@ const COMP = [
     desc: 'Softens the transition into compression.' },
   { key: 'RMS size', name: 'RMS window', min: 0, max: 250, step: 0.5, get: M.rmsFromNorm, set: M.rmsToNorm, show: (v) => v.toFixed(1) + ' ms',
     desc: 'Detector averaging. 0 = peak detection.' },
+  { key: '__makeup', name: 'Make-up gain', min: -12, max: 20, step: 0.5, read: () => S.work.makeup.enabled ? S.work.makeup.db : 0,
+    write: (v) => { S.work.makeup.db = v; S.work.makeup.enabled = v !== 0; }, show: (v) => (v > 0 ? '+' : '') + v.toFixed(1) + ' dB',
+    desc: 'Volume added after the compressor. Lifts quiet sounds while gunshots stay squashed. LoudMax catches anything that goes over.' },
   { key: 'Wet', name: 'Wet level', min: -40, max: 0, step: 0.5, get: M.ampToDb, set: (v) => M.dbToAmp(v <= -39.9 ? -150 : v), show: (v) => fmtDb(v <= -39.9 ? -60 : v),
     desc: 'Volume of the compressed signal.' },
   { key: 'Dry', name: 'Dry (parallel)', min: -60, max: 0, step: 0.5, get: M.ampToDb, set: (v) => M.dbToAmp(v <= -59.9 ? -150 : v), show: fmtDb,
@@ -353,10 +377,10 @@ const LIM_TOG = [['Fader Link', 'Fader link'], ['ISP Detection', 'ISP detection'
 function ctlRow(def, mod) {
   const val = h('span', { class: 'ctl-val' });
   const r = h('input', { type: 'range', class: 'hrange', min: def.min, max: def.max, step: def.step });
-  r.addEventListener('input', () => { S.work[mod].params[def.key] = def.set(+r.value); paint(); afterCtl(mod); });
+  r.addEventListener('input', () => { if (def.write) def.write(+r.value); else S.work[mod].params[def.key] = def.set(+r.value); paint(); afterCtl(mod); });
   r.addEventListener('wheel', (e) => { e.preventDefault(); r.value = +r.value + (e.deltaY < 0 ? 1 : -1) * def.step * (def.max - def.min > 100 ? 10 : 2); r.dispatchEvent(new Event('input')); }, { passive: false });
   function paint() {
-    const v = def.get(S.work[mod].params[def.key] ?? 0);
+    const v = def.read ? def.read() : def.get(S.work[mod].params[def.key] ?? 0);
     r.value = Math.max(def.min, Math.min(def.max, v));
     r.style.setProperty('--p', ((r.value - def.min) / (def.max - def.min) * 100) + '%');
     val.textContent = def.show(v);
@@ -413,7 +437,9 @@ function drawComp() {
   for (let d = lo; d <= 0; d += 10) { x.beginPath(); x.moveTo(X(d), Y(lo)); x.lineTo(X(d), Y(0)); x.moveTo(X(lo), Y(d)); x.lineTo(X(0), Y(d)); x.stroke(); }
   x.setLineDash([3, 4]); x.strokeStyle = '#3b4031'; x.beginPath(); x.moveTo(X(lo), Y(lo)); x.lineTo(X(0), Y(0)); x.stroke(); x.setLineDash([]);
   const p = S.work.reacomp.params, T = M.ampToDb(p.Thresh), R = M.ratioFromNorm(p.Ratio), K = M.kneeFromNorm(p.Knee);
-  const out = (i) => { if (2 * (i - T) < -K) return i; if (2 * Math.abs(i - T) <= K && K > 0) return i + (1 / R - 1) * Math.pow(i - T + K / 2, 2) / (2 * K); return T + (i - T) / R; };
+  const mk = S.work.makeup && S.work.makeup.enabled ? S.work.makeup.db : 0;
+  const out0 = (i) => { if (2 * (i - T) < -K) return i; if (2 * Math.abs(i - T) <= K && K > 0) return i + (1 / R - 1) * Math.pow(i - T + K / 2, 2) / (2 * K); return T + (i - T) / R; };
+  const out = (i) => out0(i) + mk;
   // threshold marker
   x.strokeStyle = 'rgba(207,90,65,.55)'; x.beginPath(); x.moveTo(X(T), Y(lo)); x.lineTo(X(T), Y(0)); x.stroke();
   x.fillStyle = 'rgba(207,90,65,.9)'; x.font = '10px Consolas, monospace'; x.textAlign = 'left'; x.fillText('THR ' + T.toFixed(1), X(T) + 4, Y(lo) - 6);
@@ -423,13 +449,57 @@ function drawComp() {
   x.fillStyle = '#9a977f'; x.textAlign = 'right'; x.fillText(R.toFixed(1) + ':1', W - pad, pad + 4);
 }
 
+/* ---------------------------------------------------------------- output device check */
+async function checkDevice(force) {
+  if (!api.deviceCheck || !S.status || !S.status.apo.installed) return;
+  setDevice(await api.deviceCheck(force));
+}
+function setDevice(d) {
+  S.dev = d || null;
+  const active = S.dev ? S.dev.active : null;
+  if (active === false && S.devWasActive !== false) toast('Equalizer APO isn\'t active on ' + S.dev.current.label + '. TarkovFX changes won\'t be heard.', 'bad');
+  if (active === true && S.devWasActive === false) toast('Equalizer APO is active on ' + S.dev.current.label, 'ok');
+  S.devWasActive = active;
+  renderDevice();
+  if (S.status) { $('setupDot').hidden = setupProblems() === 0; if (S.tab === 'setup') renderChecks(); }
+}
+function devActions(cur) {
+  const btn = (label, fn, cls) => h('button', { class: 'btn sm ' + (cls || ''), onclick: fn }, label);
+  const s = S.status || {};
+  const out = [];
+  if (cur && cur.enhancementsDisabled) out.push(btn('Open Sound settings', () => api.openSoundPanel(), 'primary'));
+  else if (s.deviceSelector) out.push(btn('Open Device Selector', () => api.openPath(s.deviceSelector), 'primary'));
+  out.push(btn('Re-check', async () => { await checkDevice(true); if (S.dev && S.dev.active) toast('All good', 'ok'); }));
+  return out;
+}
+function devExplain(cur) {
+  if (cur.enhancementsDisabled) return 'APO is installed on it, but Windows has "Disable all enhancements" ticked for this device, which blocks APO. In Sound settings, open the device > Properties > Advanced and untick it.';
+  return 'In Device Selector, tick this device under Playback devices, click OK, then reboot (or use "Restart audio" in Setup).';
+}
+function renderDevice() {
+  const d = S.dev, bad = !!(d && d.active === false);
+  $('devBar').hidden = !bad;
+  if (bad) {
+    const cur = d.current;
+    $('devTitle').textContent = cur.enhancementsDisabled ? 'Windows is blocking Equalizer APO on your headset.' : 'Equalizer APO isn\'t active on your headset.';
+    $('devText').textContent = 'Your sound is playing through ' + cur.label + '. ' + devExplain(cur);
+    $('devBtns').replaceChildren(...devActions(cur));
+  }
+  const node = document.querySelector('.chain .node.out');
+  node.querySelector('small').textContent = d && d.current ? (d.current.device || d.current.name).replace(/ Gaming Headset$/i, '').slice(0, 26) : 'headset';
+  node.title = d && d.current ? d.current.label : '';
+  node.classList.toggle('missing', bad);
+  renderChain();
+}
+
 /* ---------------------------------------------------------------- setup */
 function setupProblems() {
   const s = S.status; if (!s) return 0;
-  return [s.apo.installed, s.writable, s.hooked, s.plugins.reacomp.found, s.plugins.loudmax.found].filter((v) => !v).length;
+  return [s.apo.installed, s.writable, s.hooked, s.plugins.reacomp.found, s.plugins.loudmax.found, S.dev ? S.dev.active !== false : true].filter((v) => !v).length;
 }
 async function refreshStatus() {
   S.status = await api.status();
+  setDevice(S.status.device);
   $('setupDot').hidden = setupProblems() === 0;
   renderChain(); renderChecks();
   const s = S.status;
@@ -446,8 +516,16 @@ function renderChecks() {
         a: [s.editor && btn('Open APO Editor', () => api.openPath(s.editor), 'ghost')] }
     : { st: 'bad', t: 'Install Equalizer APO', d: 'Run the Equalizer APO installer (EqualizerAPO-x64-1.4.2.exe). In the Configurator that opens at the end, tick your headset, then reboot.',
         a: [btn('Download page', () => api.openUrl('https://sourceforge.net/projects/equalizerapo/files/')), btn('Re-scan', refreshStatus)] });
-  items.push({ st: s.apo.installed ? 'info' : 'off', t: 'Headset selected in APO', d: 'TarkovFX can\'t check this from here. Make sure your headset is ticked in Equalizer APO\'s Device Selector. Reboot after changing it.',
-    a: [s.deviceSelector && btn('Open Device Selector', () => api.openPath(s.deviceSelector))] });
+  const dv = S.dev, others = dv ? dv.devices.filter((x) => x.installed).map((x) => x.label) : [];
+  const restart = btn('Restart audio', async () => { await api.restartAudio(); toast('Windows audio restarted', 'ok'); setTimeout(() => checkDevice(true), 3000); }, 'ghost');
+  if (!s.apo.installed) items.push({ st: 'off', t: 'APO active on your headset', d: 'Install Equalizer APO first.' });
+  else if (!dv || dv.active === null) items.push({ st: 'info', t: 'APO active on your headset', d: 'TarkovFX couldn\'t read your current output device. Make sure your headset is ticked in Equalizer APO\'s Device Selector, then reboot.',
+    a: [s.deviceSelector && btn('Open Device Selector', () => api.openPath(s.deviceSelector)), btn('Re-check', () => checkDevice(true))] });
+  else if (dv.active) items.push({ st: 'ok', t: 'APO active on your headset', d: h('span', {}, 'Your sound plays through ', h('code', {}, dv.current.label), '. Equalizer APO is installed on it.'),
+    a: [restart] });
+  else items.push({ st: 'bad', t: dv.current.enhancementsDisabled ? 'Windows is blocking APO' : 'APO not active on your headset',
+    d: h('span', {}, 'Your sound plays through ', h('code', {}, dv.current.label), '. ' + devExplain(dv.current) + (others.length ? ' APO is currently installed on: ' + others.join(', ') + '.' : '')),
+    a: devActions(dv.current).concat(restart) });
   if (s.apo.installed) {
     items.push(s.writable
       ? { st: 'ok', t: 'Config folder writable', d: h('span', {}, 'TarkovFX can write to ', h('code', {}, s.apo.config)) }
@@ -508,14 +586,15 @@ function wireStatic() {
   $('bypassBtn').onclick = toggleBypass;
   $('applyBtn').onclick = () => { apply(); toast('Sent to Equalizer APO', 'ok'); };
   $('revertBtn').onclick = () => select(S.active);
+  $('lockDup').onclick = () => saveAs(S.work.name + ' (my version)');
   $('pSave').onclick = savePreset; $('pSaveAs').onclick = () => saveAs(); $('pRename').onclick = renamePreset;
   $('pDup').onclick = () => saveAs(S.work.name + ' copy'); $('pDelete').onclick = deletePreset;
   $('pImport').onclick = importPresets; $('pExport').onclick = exportPreset;
   $('eqFlat').onclick = () => { S.work.eq.bands.forEach((b) => (b.g = 0)); syncBands(); drawEq(); changed(); };
   $('eqMinus').onclick = () => { S.work.eq.bands.forEach((b) => (b.g = Math.max(TFX.EQ_MIN, b.g - 1))); syncBands(); drawEq(); changed(); };
   $('eqPlus').onclick = () => { S.work.eq.bands.forEach((b) => (b.g = Math.min(TFX.EQ_MAX, b.g + 1))); syncBands(); drawEq(); changed(); };
-  const op = TFX.BUILTINS[0];
-  $('compReset').onclick = () => { S.work.reacomp.params = TFX.clone(op.reacomp.params); syncComp(); drawComp(); changed(); };
+  const op = TFX.BUILTINS.find((p) => p.name === 'Operator');
+  $('compReset').onclick = () => { S.work.reacomp.params = TFX.clone(op.reacomp.params); S.work.makeup = { enabled: false, db: 0 }; syncComp(); drawComp(); changed(); };
   $('limReset').onclick = () => { S.work.loudmax.params = TFX.clone(op.loudmax.params); syncLim(); changed(); };
   $('compRawBtn').onclick = () => { S.showRaw.comp = !S.showRaw.comp; renderRaw('reacomp'); };
   $('limRawBtn').onclick = () => { S.showRaw.lim = !S.showRaw.lim; renderRaw('loudmax'); };
@@ -597,11 +676,14 @@ function mockApi() {
     settings: { liveApply: true, closeToTray: true, startMinimized: false, hotkeys: { bypass: 'Control+Alt+B', next: 'Control+Alt+N', prev: 'Control+Alt+P', slots: true } } };
   const st = { platform: 'win32', apo: { installed: true, install: 'C:\\Program Files\\EqualizerAPO', config: 'C:\\Program Files\\EqualizerAPO\\config' },
     writable: true, hooked: true, legacyLines: false, deviceSelector: 'x', editor: 'x', outFile: 'C:\\Program Files\\EqualizerAPO\\config\\TarkovFX.txt',
-    plugins: { reacomp: { found: true, path: 'C:\\Program Files\\VstPlugins\\ReaPlugs\\reacomp-standalone.dll' }, loudmax: { found: false, path: null } } };
+    plugins: { reacomp: { found: true, path: 'C:\\Program Files\\VstPlugins\\ReaPlugs\\reacomp-standalone.dll' }, loudmax: { found: true, path: 'C:\\Program Files\\EqualizerAPO\\VSTPlugins\\LoudMax64.dll' } },
+    device: (() => { const cur = { guid: 'A', name: 'Headphones', device: 'Logitech G735 Gaming Headset', label: 'Headphones (Logitech G735 Gaming Headset)', installed: false, enhancementsDisabled: false };
+      return { current: cur, active: false, devices: [cur, { guid: 'B', name: 'Speakers', device: 'Logitech G735 Gaming Headset', label: 'Speakers (Logitech G735 Gaming Headset)', installed: true }] }; })() };
   const libs = { reacomp: st.plugins.reacomp.path };
   const noop = async () => ({ ok: true });
   return { getStore: async () => ({ store, builtins: TFX.BUILTINS, version: '1.0.0' }), setStore: async (p) => { Object.assign(store, p); },
     applyHotkeys: async () => [], status: async () => st,
+    deviceCheck: async () => st.device, openSoundPanel: noop, restartAudio: noop,
     apply: async () => ({ ok: true, path: st.outFile, at: Date.now() }),
     preview: async (p, b) => TFX.toApoConfig(p, { bypass: b, libraries: libs }),
     fixPermissions: noop, hook: noop, unhook: noop, locatePlugin: async () => ({ ok: false }), clearPlugin: noop,

@@ -76,7 +76,9 @@
       name,
       builtin: !!o.builtin,
       note: o.note || '',
+      locked: !!o.locked,
       preamp: Object.assign({ enabled: false, db: 4.9 }, o.preamp),
+      makeup: Object.assign({ enabled: false, db: 0 }, o.makeup),
       eq: { enabled: o.eqEnabled !== false, bands: eqFrom(o.gains || BANDS.map(() => 0)) },
       reacomp: { enabled: o.compEnabled !== false, library: 'reacomp-standalone.dll',
         params: Object.assign({}, OPERATOR_REACOMP, o.comp || {}) },
@@ -86,6 +88,22 @@
   }
 
   const BUILTINS = [
+    makePreset('TarkovFX Pro', { builtin: true, locked: true,
+      note: 'Locked flagship, v1.2 smoother tune. Rumble and wind cut, footstep thump kept, 1.6 to 4 kHz texture lifted, top-end hiss trimmed. Gentle 3:1 compression with a 6 ms attack and auto release, so there is no pumping while sprinting. Gunshots stay down and quiet sounds come up.',
+      gains: [-9, -8, -6, -3, -1, 0, -2.5, -1.5, 1, 3.5, 5, 4.5, 0, -1, -4],
+      preamp: { enabled: false, db: 0 },
+      comp: { Thresh: map.dbToAmp(-30), Ratio: map.ratioToNorm(3), Attack: 0.012, Release: 0.03,
+        Knee: map.kneeToNorm(8), 'RMS size': 0.01, ClsAttk: 0, AntiAls: 1, AutoMkUp: 0, AutoRel: 1 },
+      makeup: { enabled: true, db: 6 },
+      lm: { 'ISP Detection': 1 } }),
+    makePreset('Footstep Max', { builtin: true,
+      note: 'Footsteps above everything else. Heavy cut on wind and low rumble, extra lift at 2.5 kHz where steps and gear rattle sit, and rain and wind hiss rolled off at the top. Smooth compression with no pumping. Gunfire sounds thinner on purpose.',
+      gains: [-12, -11, -9, -6, -2, 1, -2, 0, 1.5, 3.5, 6, 4, -1, -3, -6],
+      preamp: { enabled: false, db: 0 },
+      comp: { Thresh: map.dbToAmp(-26), Ratio: map.ratioToNorm(2.5), Attack: 0.012, Release: 0.03,
+        Knee: map.kneeToNorm(10), 'RMS size': 0.01, ClsAttk: 0, AntiAls: 1, AutoMkUp: 0, AutoRel: 1 },
+      makeup: { enabled: true, db: 5 },
+      lm: { 'ISP Detection': 1 } }),
     makePreset('Operator', { builtin: true,
       note: 'Your original config. Cuts the low rumble, lifts the footstep and reload range, compresses gently, and limits the loud stuff.',
       gains: [-5, -5, -4, -3, -2, -1, -2, 0, 2, 3, 3, 2, -3, 3, 0] }),
@@ -130,6 +148,8 @@
     lines.push(c(p.preamp.enabled, 'Preamp: ' + fmtGain(p.preamp.db) + ' dB'));
     lines.push(c(p.eq.enabled, 'GraphicEQ: ' + p.eq.bands.map((b) => b.f + ' ' + fmtGain(b.g)).join('; ')));
     lines.push(c(p.reacomp.enabled, pluginLine(p.reacomp, REACOMP_KEYS, lib.reacomp)));
+    if (p.makeup && (p.makeup.enabled || p.makeup.db))
+      lines.push('# make-up gain (after ReaComp)', c(p.makeup.enabled && p.reacomp.enabled, 'Preamp: ' + fmtGain(p.makeup.db) + ' dB'));
     lines.push(c(p.loudmax.enabled, pluginLine(p.loudmax, LOUDMAX_KEYS, lib.loudmax)));
     return lines.join('\r\n') + '\r\n';
   }
@@ -138,7 +158,7 @@
   function fromApoConfig(text, name) {
     const p = makePreset(name || 'Imported');
     p.reacomp.enabled = false; p.loudmax.enabled = false; p.eq.enabled = false; p.preamp.enabled = false;
-    const warnings = [];
+    const warnings = []; let afterComp = false;
     for (let raw of String(text).split(/\r?\n/)) {
       let line = raw.trim(); if (!line) continue;
       let enabled = true;
@@ -146,7 +166,8 @@
       const m = line.match(/^([A-Za-z]+)\s*:\s*(.*)$/); if (!m) continue;
       const cmd = m[1].toLowerCase(), rest = m[2];
       if (cmd === 'preamp') {
-        const v = parseFloat(rest); if (!isNaN(v)) { p.preamp.db = v; p.preamp.enabled = enabled; }
+        const v = parseFloat(rest);
+        if (!isNaN(v)) { if (afterComp) { p.makeup.db = v; p.makeup.enabled = enabled; } else { p.preamp.db = v; p.preamp.enabled = enabled; } }
       } else if (cmd === 'graphiceq') {
         const pts = rest.split(';').map((s) => s.trim().split(/\s+/).map(Number)).filter((a) => a.length >= 2 && !a.some(isNaN));
         if (pts.length) {
@@ -168,6 +189,7 @@
         target.library = lib.split(/[\\/]/).pop();
         target.params = Object.assign({}, target.params, params);
         target.enabled = enabled;
+        afterComp = target === p.reacomp;
       } else if (enabled && !['device', 'channel', 'stage', 'include'].includes(cmd)) {
         warnings.push('Unsupported line skipped: ' + m[1]);
       }
@@ -195,6 +217,7 @@
     const out = clone(d);
     out.note = typeof p.note === 'string' ? p.note : '';
     if (p.preamp) { out.preamp.enabled = !!p.preamp.enabled; out.preamp.db = clamp(+p.preamp.db || 0, -30, 20); }
+    if (p.makeup) { out.makeup.enabled = !!p.makeup.enabled; out.makeup.db = clamp(+p.makeup.db || 0, -24, 24); }
     if (p.eq && Array.isArray(p.eq.bands)) {
       out.eq.enabled = p.eq.enabled !== false;
       out.eq.bands = BANDS.map((f, i) => { const b = p.eq.bands[i]; return { f, g: clamp(b && isFinite(+b.g) ? +b.g : 0, EQ_MIN, EQ_MAX) }; });

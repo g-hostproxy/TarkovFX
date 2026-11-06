@@ -1,9 +1,15 @@
 {
   "name": "tarkovfx",
   "productName": "TarkovFX",
-  "version": "1.0.0",
+  "version": "1.3.0",
   "description": "Tarkov audio helper for Equalizer APO (EQ + ReaComp + LoudMax)",
   "main": "main.js",
   "author": "TarkovFX",
-  "license": "MIT"
+  "license": "MIT",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "33.2.1"
+  }
 }
