@@ -1,0 +1,56 @@
+name: Build and release
+
+# Push a tag like v1.3.0 and GitHub builds TarkovFX-v1.3-win64.zip and publishes it as a release.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build portable Windows package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ver = (Get-Content app/package.json -Raw | ConvertFrom-Json).version
+          $short = ($ver -split '\.')[0..1] -join '.'
+          $electron = '33.2.1'
+          $d = 'out/TarkovFX'
+
+          Invoke-WebRequest "https://github.com/electron/electron/releases/download/v$electron/electron-v$electron-win32-x64.zip" -OutFile electron.zip
+          Expand-Archive electron.zip -DestinationPath $d
+          Rename-Item "$d/electron.exe" 'TarkovFX.exe'
+          Remove-Item "$d/resources/default_app.asar" -ErrorAction SilentlyContinue
+          Get-ChildItem "$d/locales" -Exclude 'en-US.pak' | Remove-Item
+
+          New-Item -ItemType Directory "$d/resources/app" | Out-Null
+          Copy-Item app/main.js, app/preload.js "$d/resources/app/"
+          Copy-Item app/core, app/renderer, app/assets "$d/resources/app/" -Recurse
+          $pkg = Get-Content app/package.json -Raw | ConvertFrom-Json
+          $pkg.PSObject.Properties.Remove('scripts'); $pkg.PSObject.Properties.Remove('devDependencies')
+          $pkg | ConvertTo-Json | Set-Content "$d/resources/app/package.json" -Encoding utf8NoBOM
+          Copy-Item 'release/READ ME FIRST.txt' $d
+
+          Invoke-WebRequest 'https://github.com/electron/rcedit/releases/download/v2.0.0/rcedit-x64.exe' -OutFile rcedit.exe
+          ./rcedit.exe "$d/TarkovFX.exe" --set-icon app/assets/icon.ico `
+            --set-version-string FileDescription TarkovFX --set-version-string ProductName TarkovFX `
+            --set-version-string CompanyName TarkovFX --set-version-string OriginalFilename TarkovFX.exe `
+            --set-file-version $ver --set-product-version $ver
+
+          $zip = "out/TarkovFX-v$short-win64.zip"
+          Compress-Archive -Path $d -DestinationPath $zip
+          "ZIP=$zip" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: TarkovFX ${{ github.ref_name }}
+          files: ${{ env.ZIP }}
+          body_path: release/NOTES.md
+          make_latest: true

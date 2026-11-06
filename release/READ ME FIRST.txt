@@ -1,0 +1,31 @@
+TarkovFX v1.3 - Tarkov audio helper for Equalizer APO
+======================================================
+
+QUICK START
+1. Install Equalizer APO (EqualizerAPO-x64-1.4.2.exe). In the Configurator,
+   tick your headset under Playback devices, then reboot.
+2. Install the two VST plugins (64-bit):
+   - ReaComp: install ReaPlugs VST x64 from https://www.reaper.fm/reaplugs/
+     TarkovFX needs reacomp-standalone.dll (NOT reacomp.dll).
+   - LoudMax: download the Windows VST version from https://loudmax.blogspot.com/
+     TarkovFX needs LoudMax64.dll (the "la_LoudMax64.dll" LADSPA file won't work).
+3. Run TarkovFX.exe. Open the SETUP tab and get every item green:
+   - "Fix permissions" (one admin prompt) if the config folder is read-only
+   - "Hook (replace)" so Equalizer APO loads TarkovFX.txt
+     (your old config.txt is backed up as config.txt.pre-tarkovfx.bak)
+   - "Locate DLL..." if a plugin wasn't found automatically
+
+HOTKEYS (work in-game)
+  Ctrl+Alt+1..9   switch to preset slot 1-9 (slot 1 = TarkovFX Pro)
+  Ctrl+Alt+B      bypass / enable all FX
+  Ctrl+Alt+N / P  next / previous preset
+  (change these in Settings)
+
+NOTES
+- If TarkovFX shows "Equalizer APO isn't active on your headset", open Device
+  Selector from the banner, tick the device it names, then reboot.
+- Keep this whole folder together. Run TarkovFX.exe from inside it.
+- Closing the window hides it to the tray. Right-click the tray icon to quit.
+- Windows SmartScreen may warn because the exe isn't code-signed:
+  More info > Run anyway.
+- To undo everything: Settings > "Unhook and restore original".
