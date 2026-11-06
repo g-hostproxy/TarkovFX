@@ -1,7 +1,10 @@
 name: Build and release
 
-# Publish a release on GitHub (tag like v1.3.0) and this builds TarkovFX-vX.Y-win64.zip
-# and attaches it to that release automatically. Leave the description blank: it's filled from release/NOTES.md.
+# Two ways to release:
+#  - Actions tab > "Build and release" > Run workflow: builds the zip and creates release vX.Y.Z,
+#    using the version in app/package.json.
+#  - Or publish a release yourself on GitHub: the zip gets attached to it.
+# Release notes come from release/NOTES.md.
 on:
   release:
     types: [published]
@@ -50,6 +53,7 @@ jobs:
           $zip = "out/TarkovFX-v$short-win64.zip"
           Compress-Archive -Path $d -DestinationPath $zip
           "ZIP=$zip" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "TAG=v$ver" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Keep the zip as a build artifact
         uses: actions/upload-artifact@v4
@@ -57,12 +61,12 @@ jobs:
           name: TarkovFX-windows
           path: ${{ env.ZIP }}
 
-      - name: Attach to release
-        if: github.event_name == 'release'
+      - name: Create or update the release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.release.tag_name }}
-          name: TarkovFX ${{ github.event.release.tag_name }}
+          tag_name: ${{ github.event.release.tag_name || env.TAG }}
+          target_commitish: ${{ github.sha }}
+          name: TarkovFX ${{ github.event.release.tag_name || env.TAG }}
           files: ${{ env.ZIP }}
           body_path: release/NOTES.md
           make_latest: true
