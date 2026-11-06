@@ -1,9 +1,11 @@
 name: Build and release
 
-# Push a tag like v1.3.0 and GitHub builds TarkovFX-v1.3-win64.zip and publishes it as a release.
+# Publish a release on GitHub (tag like v1.3.0) and this builds TarkovFX-vX.Y-win64.zip
+# and attaches it to that release automatically. Leave the description blank: it's filled from release/NOTES.md.
 on:
-  push:
-    tags: ['v*']
+  release:
+    types: [published]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -13,6 +15,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || github.ref }}
 
       - name: Build portable Windows package
         shell: pwsh
@@ -47,10 +51,18 @@ jobs:
           Compress-Archive -Path $d -DestinationPath $zip
           "ZIP=$zip" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
 
-      - name: Publish release
+      - name: Keep the zip as a build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TarkovFX-windows
+          path: ${{ env.ZIP }}
+
+      - name: Attach to release
+        if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
-          name: TarkovFX ${{ github.ref_name }}
+          tag_name: ${{ github.event.release.tag_name }}
+          name: TarkovFX ${{ github.event.release.tag_name }}
           files: ${{ env.ZIP }}
           body_path: release/NOTES.md
           make_latest: true
