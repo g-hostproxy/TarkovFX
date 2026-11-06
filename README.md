@@ -8,6 +8,8 @@ TarkovFX drives [Equalizer APO](https://sourceforge.net/projects/equalizerapo/) 
 
 ## ⬇️ Download
 
+**Website:** https://g-hostproxy.github.io/TarkovFX/
+
 Get the latest **`TarkovFX-vX.X-win64.zip`** from the [**Releases**](../../releases/latest) page, unzip it anywhere, and run **`TarkovFX.exe`**.
 
 > Windows SmartScreen may warn because the exe isn't code-signed: click **More info → Run anyway**.

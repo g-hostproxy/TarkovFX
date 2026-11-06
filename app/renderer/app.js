@@ -677,8 +677,8 @@ function mockApi() {
   const st = { platform: 'win32', apo: { installed: true, install: 'C:\\Program Files\\EqualizerAPO', config: 'C:\\Program Files\\EqualizerAPO\\config' },
     writable: true, hooked: true, legacyLines: false, deviceSelector: 'x', editor: 'x', outFile: 'C:\\Program Files\\EqualizerAPO\\config\\TarkovFX.txt',
     plugins: { reacomp: { found: true, path: 'C:\\Program Files\\VstPlugins\\ReaPlugs\\reacomp-standalone.dll' }, loudmax: { found: true, path: 'C:\\Program Files\\EqualizerAPO\\VSTPlugins\\LoudMax64.dll' } },
-    device: (() => { const cur = { guid: 'A', name: 'Headphones', device: 'Logitech G735 Gaming Headset', label: 'Headphones (Logitech G735 Gaming Headset)', installed: false, enhancementsDisabled: false };
-      return { current: cur, active: false, devices: [cur, { guid: 'B', name: 'Speakers', device: 'Logitech G735 Gaming Headset', label: 'Speakers (Logitech G735 Gaming Headset)', installed: true }] }; })() };
+    device: (() => { const cur = { guid: 'A', name: 'Headphones', device: 'Logitech G735 Gaming Headset', label: 'Headphones (Logitech G735 Gaming Headset)', installed: !/devwarn/.test(location.search), enhancementsDisabled: false };
+      return { current: cur, active: !/devwarn/.test(location.search), devices: [cur, { guid: 'B', name: 'Speakers', device: 'Logitech G735 Gaming Headset', label: 'Speakers (Logitech G735 Gaming Headset)', installed: true }] }; })() };
   const libs = { reacomp: st.plugins.reacomp.path };
   const noop = async () => ({ ok: true });
   return { getStore: async () => ({ store, builtins: TFX.BUILTINS, version: '1.0.0' }), setStore: async (p) => { Object.assign(store, p); },

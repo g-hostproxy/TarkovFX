@@ -1,0 +1,563 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TarkovFX · Hear them before they hear you</title>
+<meta name="description" content="TarkovFX is a free audio helper for Escape from Tarkov. Footstep-first EQ presets, gunshot-taming compression and in-raid hotkeys, powered by Equalizer APO.">
+<meta property="og:title" content="TarkovFX · Hear them before they hear you">
+<meta property="og:description" content="Footstep-first EQ presets, gunshot-taming compression and in-raid hotkeys for Escape from Tarkov. Free for Windows.">
+<meta property="og:image" content="site/img/og.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#0a0b09">
+<link rel="icon" type="image/png" href="site/img/favicon.png">
+<style>
+@font-face { font-family: 'Barlow Condensed'; src: url('site/fonts/BarlowCondensed-Medium.ttf'); font-weight: 500; font-display: swap; }
+@font-face { font-family: 'Barlow Condensed'; src: url('site/fonts/BarlowCondensed-SemiBold.ttf'); font-weight: 600; font-display: swap; }
+@font-face { font-family: 'Barlow Condensed'; src: url('site/fonts/BarlowCondensed-Bold.ttf'); font-weight: 700; font-display: swap; }
+
+:root {
+  --bg: #090a08; --bg2: #0e100c; --panel: #13150f; --panel2: #191c15;
+  --line: #262a20; --line2: #383d2f;
+  --text: #e4dfc8; --dim: #a29f88; --mute: #6c6e60;
+  --accent: #d2bb83; --accent-2: #a08a59; --glow: rgba(210, 187, 131, .22);
+  --ok: #96b85e; --bad: #cf5a41;
+  --ui: 'Barlow Condensed', 'Bahnschrift SemiCondensed', 'Arial Narrow', sans-serif;
+  --body: 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
+  --mono: 'Cascadia Mono', Consolas, ui-monospace, monospace;
+  --max: 1180px;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 400 17px/1.6 var(--body); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+body::before { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 100; opacity: .45;
+  background: repeating-linear-gradient(0deg, rgba(255,255,255,.012) 0 1px, transparent 1px 3px),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+a { color: inherit; text-decoration: none; }
+img { max-width: 100%; height: auto; display: block; }
+.wrap { width: min(var(--max), 100% - 40px); margin: 0 auto; }
+.label { font: 600 13px/1 var(--ui); letter-spacing: .3em; text-transform: uppercase; color: var(--accent); }
+h1, h2, h3 { font-family: var(--ui); font-weight: 700; text-transform: uppercase; letter-spacing: .03em; line-height: .95; margin: 0; }
+h2 { font-size: clamp(40px, 5.5vw, 68px); }
+h2 em { font-style: normal; color: var(--accent); }
+.lead { color: var(--dim); font-size: 18px; max-width: 620px; }
+section { padding: 120px 0; position: relative; }
+.sec-head { display: grid; gap: 18px; margin-bottom: 56px; }
+
+/* ---------- buttons ---------- */
+.btn { display: inline-flex; align-items: center; gap: 12px; font: 600 16px/1 var(--ui); letter-spacing: .16em; text-transform: uppercase;
+  padding: 16px 24px; border: 1px solid var(--line2); background: rgba(255,255,255,.02); color: var(--text); cursor: pointer; transition: .18s; }
+.btn:hover { border-color: var(--accent-2); color: #fff; background: rgba(210,187,131,.06); }
+.btn svg { width: 18px; height: 18px; flex: none; }
+.btn-dl { position: relative; padding: 0; border: 0; background: linear-gradient(180deg, #e2cd97, #ad9562); color: #13110a; box-shadow: 0 0 0 1px #f0dfb0 inset, 0 12px 40px rgba(210,187,131,.28); overflow: hidden; }
+.btn-dl:hover { color: #000; background: linear-gradient(180deg, #f0dcab, #bca56f); box-shadow: 0 0 0 1px #fff0c8 inset, 0 16px 56px rgba(210,187,131,.42); transform: translateY(-1px); }
+.btn-dl .dl-main { display: flex; align-items: center; gap: 12px; padding: 18px 26px; font-size: 19px; }
+.btn-dl .dl-meta { padding: 0 20px; align-self: stretch; display: grid; place-items: center; border-left: 1px solid rgba(0,0,0,.18); font: 500 13px/1.2 var(--mono); letter-spacing: 0; text-transform: none; color: rgba(19,17,10,.75); background: rgba(0,0,0,.06); }
+.btn-dl::after { content: ''; position: absolute; top: 0; bottom: 0; width: 60px; left: -80px; background: linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent); transform: skewX(-20deg); animation: sheen 4.5s ease-in-out infinite 1.5s; }
+@keyframes sheen { 0%, 70% { left: -80px; } 100% { left: 110%; } }
+.btn-dl.sm .dl-main { padding: 11px 16px; font-size: 15px; }
+.dl-note { font-size: 13.5px; color: var(--mute); margin-top: 14px; }
+.dl-note a { color: var(--dim); text-decoration: underline; text-decoration-color: var(--line2); text-underline-offset: 3px; }
+.dl-note a:hover { color: var(--accent); }
+
+/* ---------- nav ---------- */
+.nav { position: fixed; inset: 0 0 auto; z-index: 50; transition: background .25s, border-color .25s; border-bottom: 1px solid transparent; }
+.nav.scrolled { background: rgba(9,10,8,.78); backdrop-filter: blur(14px) saturate(140%); border-color: var(--line); }
+.nav .wrap { height: 72px; display: flex; align-items: center; gap: 32px; }
+.brand { display: flex; align-items: center; gap: 11px; font: 700 22px/1 var(--ui); letter-spacing: .14em; }
+.brand img { width: 30px; height: 30px; }
+.brand .sl { color: var(--accent); }
+.nav-links { display: flex; gap: 28px; margin-left: auto; font: 600 14px/1 var(--ui); letter-spacing: .2em; text-transform: uppercase; color: var(--dim); }
+.nav-links a:hover { color: var(--accent); }
+.nav .gh { display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid var(--line2); color: var(--dim); transition: .15s; }
+.nav .gh:hover { color: var(--accent); border-color: var(--accent-2); }
+.nav .gh svg { width: 18px; height: 18px; }
+
+/* ---------- hero ---------- */
+.hero { min-height: 100vh; padding: 140px 0 80px; display: flex; align-items: center; overflow: hidden; }
+.hero::before { content: ''; position: absolute; inset: 0; background:
+  radial-gradient(900px 520px at 78% 30%, rgba(210,187,131,.13), transparent 65%),
+  radial-gradient(700px 500px at 5% 95%, rgba(150,184,94,.07), transparent 60%); }
+.hero-grid { position: absolute; inset: 0; opacity: .35; mask-image: radial-gradient(ellipse at 60% 40%, #000 20%, transparent 70%);
+  background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: 64px 64px; }
+.hero .wrap { position: relative; display: grid; grid-template-columns: 1.02fr 1fr; gap: 60px; align-items: center; }
+.eyebrow { display: inline-flex; align-items: center; gap: 10px; padding: 7px 14px 7px 10px; border: 1px solid var(--line2); background: rgba(255,255,255,.02); font: 600 13px/1 var(--ui); letter-spacing: .22em; text-transform: uppercase; color: var(--dim); }
+.eyebrow .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 10px rgba(150,184,94,.7); animation: pulse 2s infinite; }
+@keyframes pulse { 50% { opacity: .35; } }
+.hero h1 { font-size: clamp(58px, 8.2vw, 116px); margin: 24px 0 22px; letter-spacing: .01em; }
+.hero h1 .ln { display: block; }
+.hero h1 .gold { background: linear-gradient(180deg, #f2dfac 10%, #a8915d 95%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.hero .lead { font-size: 19px; margin: 0 0 34px; }
+.hero-cta { display: flex; gap: 14px; flex-wrap: wrap; align-items: stretch; }
+.hero-shot { position: relative; perspective: 1600px; }
+.hero-shot .frame { position: relative; transform: rotateY(-9deg) rotateX(3deg); transform-origin: left center; transition: transform .6s cubic-bezier(.2,.7,.2,1);
+  border: 1px solid var(--line2); background: var(--panel); box-shadow: 0 50px 120px rgba(0,0,0,.7), 0 0 0 1px rgba(210,187,131,.08), 0 0 90px rgba(210,187,131,.12); }
+.hero-shot:hover .frame { transform: rotateY(-3deg) rotateX(1deg); }
+.hero-shot .frame::before, .hero-shot .frame::after { content: ''; position: absolute; width: 22px; height: 22px; border: 2px solid var(--accent); z-index: 2; }
+.hero-shot .frame::before { top: -8px; left: -8px; border-width: 2px 0 0 2px; }
+.hero-shot .frame::after { bottom: -8px; right: -8px; border-width: 0 2px 2px 0; }
+.hero-shot img { width: 100%; }
+.float-tag { position: absolute; z-index: 3; display: flex; align-items: center; gap: 10px; padding: 11px 15px; background: rgba(19,21,15,.92); backdrop-filter: blur(8px); border: 1px solid var(--line2); font: 600 14px/1.1 var(--ui); letter-spacing: .14em; text-transform: uppercase; box-shadow: 0 16px 40px rgba(0,0,0,.5); }
+.float-tag small { display: block; font: 500 12px/1.2 var(--mono); letter-spacing: 0; text-transform: none; color: var(--mute); margin-top: 3px; }
+.float-tag .ic { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid var(--accent-2); color: var(--accent); }
+.float-tag .ic svg { width: 16px; height: 16px; }
+.ft1 { left: -34px; bottom: 16%; animation: bob 6s ease-in-out infinite; }
+.ft2 { right: -10px; top: -26px; animation: bob 7s ease-in-out infinite reverse; }
+@keyframes bob { 50% { transform: translateY(-10px); } }
+
+/* ---------- marquee strip ---------- */
+.strip { border-block: 1px solid var(--line); background: var(--bg2); overflow: hidden; padding: 0; }
+.strip-track { display: flex; gap: 56px; width: max-content; padding: 22px 0; animation: marquee 38s linear infinite; font: 600 18px/1 var(--ui); letter-spacing: .24em; text-transform: uppercase; color: var(--mute); white-space: nowrap; }
+.strip-track span { display: inline-flex; align-items: center; gap: 56px; }
+.strip-track span::after { content: '◆'; color: var(--accent-2); font-size: 10px; }
+.strip-track b { color: var(--accent); font-weight: 600; }
+@keyframes marquee { to { transform: translateX(-50%); } }
+
+/* ---------- stats ---------- */
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); margin-top: 0; }
+.stat { padding: 30px 28px; border-right: 1px solid var(--line); }
+.stat:last-child { border-right: 0; }
+.stat b { display: block; font: 700 54px/1 var(--ui); color: var(--text); }
+.stat b span { color: var(--accent); }
+.stat small { font: 600 13px/1.3 var(--ui); letter-spacing: .22em; text-transform: uppercase; color: var(--mute); }
+
+/* ---------- features ---------- */
+.feat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+.feat { background: var(--bg); padding: 38px 32px 36px; position: relative; transition: background .25s; }
+.feat:hover { background: var(--panel); }
+.feat::before { content: ''; position: absolute; top: -1px; left: -1px; width: 0; height: 2px; background: var(--accent); transition: width .35s; }
+.feat:hover::before { width: calc(100% + 2px); }
+.feat .num { font: 500 13px/1 var(--mono); color: var(--mute); }
+.feat .ic { width: 46px; height: 46px; margin: 22px 0 22px; display: grid; place-items: center; border: 1px solid var(--line2); color: var(--accent); background: rgba(210,187,131,.04); }
+.feat .ic svg { width: 22px; height: 22px; }
+.feat h3 { font-size: 27px; margin-bottom: 12px; }
+.feat p { margin: 0; color: var(--dim); font-size: 16px; }
+
+/* ---------- signal chain ---------- */
+.chain-sec { background: linear-gradient(180deg, var(--bg), var(--bg2) 40%, var(--bg)); }
+.chain { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0; position: relative; margin-top: 10px; }
+.chain::before { content: ''; position: absolute; left: 6%; right: 6%; top: 38px; height: 2px; background: repeating-linear-gradient(90deg, var(--line2) 0 8px, transparent 8px 14px); }
+.chain .pulse { position: absolute; top: 33px; left: 6%; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 18px var(--accent), 0 0 40px var(--glow); animation: travel 5s cubic-bezier(.5,0,.5,1) infinite; }
+@keyframes travel { 0% { left: 6%; opacity: 0; } 8% { opacity: 1; } 92% { opacity: 1; } 100% { left: 93%; opacity: 0; } }
+.cnode { text-align: center; position: relative; padding: 0 8px; }
+.cnode .bx { width: 78px; height: 78px; margin: 0 auto 20px; display: grid; place-items: center; background: var(--panel2); border: 1px solid var(--line2); position: relative; z-index: 1; color: var(--accent); }
+.cnode .bx svg { width: 28px; height: 28px; }
+.cnode.end .bx { border-color: var(--accent-2); box-shadow: 0 0 30px var(--glow); }
+.cnode h4 { margin: 0 0 6px; font: 700 20px/1 var(--ui); letter-spacing: .1em; text-transform: uppercase; }
+.cnode p { margin: 0; font-size: 14px; color: var(--mute); line-height: 1.45; }
+
+/* ---------- presets ---------- */
+.presets { display: grid; grid-template-columns: 1.1fr 1fr; gap: 40px; align-items: start; }
+.plist { display: grid; gap: 8px; }
+.pitem { display: grid; grid-template-columns: 34px 1fr 120px; gap: 16px; align-items: center; padding: 16px 18px; border: 1px solid var(--line); background: rgba(255,255,255,.012); cursor: pointer; transition: .18s; text-align: left; font: inherit; color: inherit; width: 100%; }
+.pitem:hover { border-color: var(--line2); background: var(--panel); }
+.pitem.on { border-color: var(--accent-2); background: linear-gradient(90deg, rgba(210,187,131,.12), rgba(210,187,131,.02)); }
+.pitem .slot { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid var(--line2); font: 500 13px var(--mono); color: var(--mute); }
+.pitem.on .slot { border-color: var(--accent); color: var(--accent); }
+.pitem b { font: 700 21px/1.05 var(--ui); letter-spacing: .06em; text-transform: uppercase; display: flex; align-items: center; gap: 10px; }
+.pitem b .lk { font: 600 11px/1 var(--ui); letter-spacing: .18em; padding: 3px 7px; border: 1px solid var(--accent-2); color: var(--accent); }
+.pitem small { display: block; color: var(--mute); font-size: 14px; margin-top: 3px; }
+.pitem svg { width: 120px; height: 34px; }
+.pview { position: sticky; top: 100px; border: 1px solid var(--line2); background: var(--panel); padding: 26px; }
+.pview .top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+.pview h3 { font-size: 40px; }
+.pview p { color: var(--dim); font-size: 15.5px; min-height: 72px; margin: 10px 0 18px; }
+.pview svg { width: 100%; height: auto; display: block; background: #0b0c09; border: 1px solid var(--line); }
+.pview .zones { display: grid; grid-template-columns: repeat(5, 1fr); margin-top: 10px; font: 600 11px/1.2 var(--ui); letter-spacing: .16em; text-transform: uppercase; color: var(--mute); text-align: center; }
+.pview .zones .hl { color: var(--accent); }
+.curve-path { transition: d .5s cubic-bezier(.2,.7,.2,1); }
+
+/* ---------- screens ---------- */
+.screens { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+.shot { border: 1px solid var(--line2); background: var(--panel); overflow: hidden; }
+.shot img { transition: transform .6s cubic-bezier(.2,.7,.2,1); }
+.shot:hover img { transform: scale(1.025); }
+.shot figcaption { padding: 16px 20px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 14px; font-size: 15px; color: var(--dim); }
+.shot figcaption b { font: 700 17px/1.2 var(--ui); letter-spacing: .14em; text-transform: uppercase; color: var(--text); white-space: nowrap; }
+figure { margin: 0; }
+.shot.wide { grid-column: span 2; }
+
+/* ---------- setup ---------- */
+.steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; counter-reset: s; }
+.step { border: 1px solid var(--line); padding: 28px 24px; background: rgba(255,255,255,.012); position: relative; }
+.step::before { counter-increment: s; content: '0' counter(s); font: 700 56px/1 var(--ui); color: transparent; -webkit-text-stroke: 1px var(--line2); position: absolute; right: 18px; top: 16px; }
+.step h3 { font-size: 24px; margin: 4px 0 12px; max-width: 80%; }
+.step p { margin: 0 0 16px; color: var(--dim); font-size: 15px; }
+.step a.ext { font: 600 13px/1 var(--ui); letter-spacing: .18em; text-transform: uppercase; color: var(--accent); display: inline-flex; gap: 8px; align-items: center; }
+.step a.ext:hover { color: #fff; }
+.step code { font: 13px var(--mono); color: var(--accent); background: #0b0c09; border: 1px solid var(--line); padding: 1px 6px; }
+
+/* ---------- hotkeys ---------- */
+.hk { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; }
+.keys { display: grid; gap: 12px; }
+.krow { display: flex; align-items: center; gap: 8px; padding: 18px 22px; border: 1px solid var(--line); background: rgba(255,255,255,.012); }
+.krow span { margin-left: auto; font: 600 16px/1 var(--ui); letter-spacing: .16em; text-transform: uppercase; color: var(--dim); }
+kbd { font: 600 15px/1 var(--mono); padding: 9px 12px; min-width: 42px; text-align: center; border: 1px solid var(--line2); border-bottom-width: 3px; background: linear-gradient(#1b1e16, #121410); color: var(--text); border-radius: 3px; }
+
+/* ---------- faq ---------- */
+.faq { display: grid; gap: 10px; max-width: 860px; }
+details { border: 1px solid var(--line); background: rgba(255,255,255,.012); transition: border-color .2s; }
+details[open] { border-color: var(--line2); background: var(--panel); }
+summary { list-style: none; cursor: pointer; padding: 22px 26px; font: 700 21px/1.2 var(--ui); letter-spacing: .06em; text-transform: uppercase; display: flex; justify-content: space-between; gap: 20px; align-items: center; }
+summary::-webkit-details-marker { display: none; }
+summary::after { content: '+'; font: 500 28px/1 var(--mono); color: var(--accent); transition: transform .25s; }
+details[open] summary::after { transform: rotate(45deg); }
+details p { margin: 0; padding: 0 26px 24px; color: var(--dim); font-size: 16px; }
+
+/* ---------- final cta ---------- */
+.final { text-align: center; padding: 140px 0; overflow: hidden; }
+.final::before { content: ''; position: absolute; inset: 0; background: radial-gradient(700px 380px at 50% 60%, rgba(210,187,131,.15), transparent 70%); }
+.final .wrap { position: relative; display: grid; justify-items: center; gap: 24px; }
+.final h2 { font-size: clamp(48px, 7vw, 96px); }
+.final .lead { margin: 0 auto 10px; }
+.final-eq { position: absolute; left: 0; bottom: 0; width: 100%; height: 160px; opacity: .5; }
+
+footer { border-top: 1px solid var(--line); padding: 36px 0 48px; color: var(--mute); font-size: 14px; }
+footer .wrap { display: flex; gap: 24px; justify-content: space-between; flex-wrap: wrap; align-items: center; }
+footer a:hover { color: var(--accent); }
+footer .links { display: flex; gap: 22px; }
+
+/* ---------- reveal ---------- */
+.rv { opacity: 0; transform: translateY(28px); transition: opacity .8s cubic-bezier(.2,.7,.2,1), transform .8s cubic-bezier(.2,.7,.2,1); }
+.rv.in { opacity: 1; transform: none; }
+.rv.d1 { transition-delay: .08s; } .rv.d2 { transition-delay: .16s; } .rv.d3 { transition-delay: .24s; }
+
+@media (max-width: 980px) {
+  .hero .wrap, .presets, .hk { grid-template-columns: 1fr; }
+  .hero { min-height: 0; padding-top: 120px; }
+  .hero-shot .frame { transform: none; }
+  .ft1 { left: 8px; } .ft2 { right: 8px; }
+  .feat-grid { grid-template-columns: 1fr 1fr; }
+  .steps { grid-template-columns: 1fr 1fr; }
+  .stats { grid-template-columns: 1fr 1fr; } .stat:nth-child(2) { border-right: 0; } .stat:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+  .chain { grid-template-columns: repeat(3, 1fr); row-gap: 40px; } .chain::before, .chain .pulse { display: none; }
+  .nav-links { display: none; }
+  .pview { position: static; }
+}
+@media (max-width: 640px) {
+  section { padding: 84px 0; }
+  .feat-grid, .steps, .screens { grid-template-columns: 1fr; } .shot.wide { grid-column: auto; }
+  .chain { grid-template-columns: 1fr 1fr; }
+  .float-tag { display: none; }
+  .btn-dl .dl-meta { display: none; }
+  .pitem { grid-template-columns: 30px 1fr; } .pitem svg { display: none; }
+  .nav .btn-dl { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  .rv { opacity: 1; transform: none; }
+}
+</style>
+</head>
+<body>
+
+<nav class="nav" id="nav">
+  <div class="wrap">
+    <a class="brand" href="#top"><img src="site/img/icon.png" alt="">TARKOV<span class="sl">//</span>FX</a>
+    <div class="nav-links">
+      <a href="#features">Features</a><a href="#presets">Presets</a><a href="#setup">Setup</a><a href="#faq">FAQ</a>
+    </div>
+    <a class="gh" href="https://github.com/g-hostproxy/TarkovFX" aria-label="GitHub repository"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a>
+    <a class="btn btn-dl sm js-dl" href="https://github.com/g-hostproxy/TarkovFX/releases/latest"><span class="dl-main"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 20h16"/></svg>Download</span></a>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <div class="hero-grid"></div>
+  <div class="wrap">
+    <div>
+      <span class="eyebrow rv"><span class="dot"></span><span class="js-ver">Free for Windows · v1.3</span></span>
+      <h1 class="rv d1"><span class="ln">Hear them</span><span class="ln gold">before they</span><span class="ln">hear you.</span></h1>
+      <p class="lead rv d2">TarkovFX is an audio helper for Escape from Tarkov. It pushes footsteps forward, holds gunfire down and cuts the wind, all from one app, with presets you can switch mid-raid.</p>
+      <div class="rv d3">
+        <div class="hero-cta">
+          <a class="btn btn-dl js-dl" href="https://github.com/g-hostproxy/TarkovFX/releases/latest">
+            <span class="dl-main"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 20h16"/></svg>Download for Windows</span>
+            <span class="dl-meta js-meta">.zip · Win 10/11</span>
+          </a>
+          <a class="btn" href="#setup">How to set up</a>
+        </div>
+        <p class="dl-note">Unzip and run <b>TarkovFX.exe</b>. Needs Equalizer APO and two free plugins (<a href="#setup">setup takes about 5 minutes</a>).</p>
+      </div>
+    </div>
+    <div class="hero-shot rv d2">
+      <div class="frame"><img src="site/img/app-eq.webp" alt="TarkovFX equalizer with the Footstep Max preset" width="1600" height="1032"></div>
+      <div class="float-tag ft1"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 19c-1.5 0-2.5-1.2-2.5-3S6 12 6 10s1-4 3-4 2.5 2 2 4-2 4-2 6-.5 3-2 3Zm10-4c-1.5 0-2.5-1.2-2.5-3s1.5-4 1.5-6 1-4 3-4 2.5 2 2 4-2 4-2 6-.5 3-2 3Z"/></svg></span><span>Footsteps +6 dB<small>at 2.5 kHz, where steps sit</small></span></div>
+      <div class="float-tag ft2"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg></span><span>Gunshots squashed<small>3:1 compression + limiter</small></span></div>
+    </div>
+  </div>
+</header>
+
+<div class="strip" aria-hidden="true">
+  <div class="strip-track">
+    <span><b>15-band</b> graphic EQ</span><span><b>ReaComp</b> compression</span><span><b>LoudMax</b> limiting</span><span><b>8</b> factory presets</span><span><b>Ctrl+Alt</b> in-raid hotkeys</span><span>Wind &amp; rumble <b>cut</b></span><span>Device <b>health check</b></span>
+    <span><b>15-band</b> graphic EQ</span><span><b>ReaComp</b> compression</span><span><b>LoudMax</b> limiting</span><span><b>8</b> factory presets</span><span><b>Ctrl+Alt</b> in-raid hotkeys</span><span>Wind &amp; rumble <b>cut</b></span><span>Device <b>health check</b></span>
+  </div>
+</div>
+
+<section id="features">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="label rv">// Loadout</span>
+      <h2 class="rv d1">Built for <em>sound</em>,<br>not for show.</h2>
+      <p class="lead rv d2">Everything a Tarkov audio setup needs, in one place instead of three config editors.</p>
+    </div>
+    <div class="stats rv">
+      <div class="stat"><b>15</b><small>EQ bands</small></div>
+      <div class="stat"><b>8</b><small>Factory presets</small></div>
+      <div class="stat"><b>1<span>-</span>9</b><small>Hotkey slots</small></div>
+      <div class="stat"><b>$0</b><small>Forever free</small></div>
+    </div>
+    <div style="height:22px"></div>
+    <div class="feat-grid">
+      <div class="feat rv"><span class="num">01</span><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg></div><h3>Footstep-first EQ</h3><p>A 15-band graphic EQ with zones labelled for Tarkov: rumble, body, footsteps, gear, air. Drag the curve or the sliders.</p></div>
+      <div class="feat rv d1"><span class="num">02</span><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 20 L10 13 L21 9"/><path d="M3 4v16h18"/></svg></div><h3>Gunshots held down</h3><p>ReaComp compression squashes loud transients while make-up gain lifts the quiet stuff. LoudMax catches what's left.</p></div>
+      <div class="feat rv d2"><span class="num">03</span><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8h11a3 3 0 1 0-3-3M3 16h15a3 3 0 1 1-3 3M3 12h7"/></svg></div><h3>Wind &amp; ambience tamed</h3><p>Footstep Max cuts sub-bass wind and rolls off rain hiss, so the sounds that get you killed stand out.</p></div>
+      <div class="feat rv"><span class="num">04</span><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="6" width="20" height="13" rx="1"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 15h10"/></svg></div><h3>In-raid hotkeys</h3><p>Ctrl+Alt+1–9 jumps between presets, Ctrl+Alt+B bypasses everything. No alt-tabbing out of a fight.</p></div>
+      <div class="feat rv d1"><span class="num">05</span><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6Z"/><path d="m9 12 2 2 4-4"/></svg></div><h3>Setup that checks itself</h3><p>Finds Equalizer APO and your plugins, fixes permissions, and warns you if APO isn't actually running on your headset.</p></div>
+      <div class="feat rv d2"><span class="num">06</span><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h12l4 4v12H4Z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/></svg></div><h3>Your presets, your way</h3><p>Save, duplicate, import and export presets. Even plain Equalizer APO configs import straight in.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="chain-sec">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="label rv">// Signal chain</span>
+      <h2 class="rv d1">From the game<br>to your <em>ears</em>.</h2>
+      <p class="lead rv d2">TarkovFX drives Equalizer APO, which processes all of Windows' audio before it reaches your headset. It doesn't touch the game.</p>
+    </div>
+    <div class="chain rv">
+      <span class="pulse"></span>
+      <div class="cnode"><div class="bx"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 11h4M8 9v4M15 12h.01M18 10h.01"/><path d="M17.3 5H6.7a4 4 0 0 0-4 3.6L2 15a3 3 0 0 0 5.2 2L9 15h6l1.8 2a3 3 0 0 0 5.2-2l-.7-6.4A4 4 0 0 0 17.3 5Z"/></svg></div><h4>Tarkov</h4><p>Game audio out</p></div>
+      <div class="cnode"><div class="bx"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg></div><h4>Graphic EQ</h4><p>Cut rumble, lift footsteps</p></div>
+      <div class="cnode"><div class="bx"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 20 L10 13 L21 9"/><path d="M3 4v16h18"/></svg></div><h4>ReaComp</h4><p>Squash gunshots</p></div>
+      <div class="cnode"><div class="bx"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 19V5M5 12l7-7 7 7"/></svg></div><h4>Make-up</h4><p>Lift quiet sounds</p></div>
+      <div class="cnode"><div class="bx"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7h18M3 12c3 0 3 5 6 5s3-10 6-10 3 5 6 5"/></svg></div><h4>LoudMax</h4><p>Hard ceiling on peaks</p></div>
+      <div class="cnode end"><div class="bx"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1v-6h3ZM3 19a2 2 0 0 0 2 2h1v-6H3Z"/></svg></div><h4>Headset</h4><p>You hear them first</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="presets">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="label rv">// Presets</span>
+      <h2 class="rv d1">Eight presets.<br><em>One</em> keypress.</h2>
+      <p class="lead rv d2">Start from a factory preset, tweak it, save your own. Click one to see its EQ curve.</p>
+    </div>
+    <div class="presets">
+      <div class="plist rv" id="plist"></div>
+      <div class="pview rv d1">
+        <div class="top"><span class="label" id="pvKind">Slot 1</span><span class="label" style="color:var(--mute)" id="pvHk">Ctrl+Alt+1</span></div>
+        <h3 id="pvName">TarkovFX Pro</h3>
+        <p id="pvNote"></p>
+        <svg viewBox="0 0 600 240" id="pvSvg" aria-label="EQ curve">
+          <defs><linearGradient id="fillg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d2bb83" stop-opacity=".32"/><stop offset=".5" stop-color="#d2bb83" stop-opacity=".02"/><stop offset="1" stop-color="#9fb7c9" stop-opacity=".22"/></linearGradient>
+          <filter id="glow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+          <g id="pvGrid"></g>
+          <path id="pvFill" class="curve-path" fill="url(#fillg)"/>
+          <path id="pvLine" class="curve-path" fill="none" stroke="#dcc590" stroke-width="2.5" filter="url(#glow)"/>
+          <g id="pvDots"></g>
+        </svg>
+        <div class="zones"><span>Rumble</span><span>Body</span><span class="hl">Footsteps</span><span>Gear</span><span>Air</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:40px">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="label rv">// Intel</span>
+      <h2 class="rv d1">See what you <em>hear</em>.</h2>
+    </div>
+    <div class="screens">
+      <figure class="shot rv"><img src="site/img/app-comp.webp" alt="Compressor tab with transfer curve" loading="lazy" width="1600" height="1032"><figcaption><b>Compressor</b><span>Live transfer curve, real units, raw values on demand.</span></figcaption></figure>
+      <figure class="shot rv d1"><img src="site/img/app-setup.webp" alt="Setup checklist" loading="lazy" width="1600" height="1032"><figcaption><b>Setup</b><span>A checklist that goes green when you're ready to drop in.</span></figcaption></figure>
+      <figure class="shot wide rv"><img src="site/img/app-warn.webp" alt="Warning that Equalizer APO is not active on the headset" loading="lazy" width="1400" height="292"><figcaption><b>Health check</b><span>Swapped headsets or a driver update broke it? TarkovFX tells you, and how to fix it.</span></figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section id="setup">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="label rv">// Deployment</span>
+      <h2 class="rv d1">Ready in<br><em>five</em> minutes.</h2>
+      <p class="lead rv d2">TarkovFX uses free tools you install once. Their licences don't allow bundling, so grab them from the official sites.</p>
+    </div>
+    <div class="steps">
+      <div class="step rv"><h3>Equalizer APO</h3><p>Install it, tick your headset under <b>Playback devices</b>, then reboot.</p><a class="ext" href="https://sourceforge.net/projects/equalizerapo/files/" target="_blank" rel="noopener">Get it ↗</a></div>
+      <div class="step rv d1"><h3>ReaPlugs</h3><p>Install the <b>VST x64</b> version. TarkovFX uses <code>reacomp-standalone.dll</code>.</p><a class="ext" href="https://www.reaper.fm/reaplugs/" target="_blank" rel="noopener">Get it ↗</a></div>
+      <div class="step rv d2"><h3>LoudMax</h3><p>Get the Windows <b>VST</b> version, not LADSPA. You need <code>LoudMax64.dll</code>.</p><a class="ext" href="https://loudmax.blogspot.com/" target="_blank" rel="noopener">Get it ↗</a></div>
+      <div class="step rv d3"><h3>TarkovFX</h3><p>Unzip, run <b>TarkovFX.exe</b>, and turn every item on the <b>Setup</b> tab green.</p><a class="ext js-dl" href="https://github.com/g-hostproxy/TarkovFX/releases/latest">Download ↓</a></div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:40px">
+  <div class="wrap hk">
+    <div class="sec-head" style="margin:0">
+      <span class="label rv">// Controls</span>
+      <h2 class="rv d1">Switch mid-raid.<br><em>Never</em> alt-tab.</h2>
+      <p class="lead rv d2">Global hotkeys work while Tarkov is focused. Remap them in Settings, and close the window to keep TarkovFX in your tray.</p>
+    </div>
+    <div class="keys rv d1">
+      <div class="krow"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>1–9</kbd><span>Preset slot</span></div>
+      <div class="krow"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>B</kbd><span>Bypass all FX</span></div>
+      <div class="krow"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>N</kbd><span>Next preset</span></div>
+      <div class="krow"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>P</kbd><span>Previous preset</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="faq" style="padding-top:40px">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="label rv">// Briefing</span>
+      <h2 class="rv d1">Questions.</h2>
+    </div>
+    <div class="faq rv">
+      <details><summary>Does it touch the game?</summary><p>No. TarkovFX never reads or changes Tarkov's files or memory. It only writes a config file for Equalizer APO, which processes Windows' audio output, the same way any system-wide EQ works.</p></details>
+      <details><summary>Is it free?</summary><p>Yes. TarkovFX, Equalizer APO, ReaPlugs and LoudMax are all free.</p></details>
+      <details><summary>Why aren't the plugins included?</summary><p>ReaPlugs and LoudMax are free, but their licences don't allow redistribution. The Setup tab links to the official downloads and finds the files automatically once they're installed.</p></details>
+      <details><summary>Windows says the app is unrecognised.</summary><p>TarkovFX isn't code-signed yet, so SmartScreen may warn on first launch. Click <b>More info → Run anyway</b>. The full source code is on GitHub.</p></details>
+      <details><summary>It makes no difference to my audio.</summary><p>Equalizer APO is probably not installed on the device you're listening through, for example after a headset swap, switching USB and Bluetooth, or a driver update. TarkovFX shows a red banner when this happens: click <b>Open Device Selector</b>, tick the device it names, then reboot.</p></details>
+      <details><summary>Which preset should I use?</summary><p>Start with <b>TarkovFX Pro</b> for an all-round competitive sound, or <b>Footstep Max</b> if footsteps are all you care about. Headsets differ, so tweak a band or two and save your own.</p></details>
+    </div>
+  </div>
+</section>
+
+<section class="final">
+  <svg class="final-eq" viewBox="0 0 1200 160" preserveAspectRatio="none" aria-hidden="true"><path id="finalWave" fill="none" stroke="#d2bb83" stroke-opacity=".5" stroke-width="2"/></svg>
+  <div class="wrap">
+    <span class="label rv">// Extract</span>
+    <h2 class="rv d1">Your ears are<br>your <em>best</em> gear.</h2>
+    <p class="lead rv d2">Download TarkovFX and hear the difference in your next raid.</p>
+    <div class="rv d3">
+      <a class="btn btn-dl js-dl" href="https://github.com/g-hostproxy/TarkovFX/releases/latest">
+        <span class="dl-main"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 20h16"/></svg>Download for Windows</span>
+        <span class="dl-meta js-meta">.zip · Win 10/11</span>
+      </a>
+      <p class="dl-note"><a href="https://github.com/g-hostproxy/TarkovFX/releases">All releases</a> · <a href="https://github.com/g-hostproxy/TarkovFX">Source code</a></p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>TarkovFX · Not affiliated with Battlestate Games, Cockos or LoudMax.</span>
+    <span class="links"><a href="https://github.com/g-hostproxy/TarkovFX">GitHub</a><a href="https://github.com/g-hostproxy/TarkovFX/releases">Releases</a><a href="#top">Back to top ↑</a></span>
+  </div>
+</footer>
+
+<script>
+/* ---- one-click download: point every button at the newest release's zip ---- */
+(function () {
+  const REPO = 'g-hostproxy/TarkovFX';
+  const fallback = 'https://github.com/' + REPO + '/releases/latest/download/TarkovFX-v1.3-win64.zip';
+  const setAll = (url) => document.querySelectorAll('.js-dl').forEach((a) => { a.href = url; });
+  setAll(fallback);
+  fetch('https://api.github.com/repos/' + REPO + '/releases/latest', { headers: { Accept: 'application/vnd.github+json' } })
+    .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+    .then((rel) => {
+      const asset = (rel.assets || []).find((a) => /win64\.zip$/i.test(a.name)) || (rel.assets || [])[0];
+      if (!asset) return;
+      setAll(asset.browser_download_url);
+      const mb = Math.round(asset.size / 1048576);
+      document.querySelectorAll('.js-meta').forEach((m) => { m.textContent = rel.tag_name + ' · ' + mb + ' MB'; });
+      document.querySelectorAll('.js-ver').forEach((v) => { v.textContent = 'Free for Windows · ' + rel.tag_name; });
+    })
+    .catch(() => { /* keep fallback link */ });
+})();
+
+/* ---- nav ---- */
+const nav = document.getElementById('nav');
+const onScroll = () => nav.classList.toggle('scrolled', scrollY > 20);
+addEventListener('scroll', onScroll, { passive: true }); onScroll();
+
+/* ---- reveal on scroll ---- */
+const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: .12 });
+document.querySelectorAll('.rv').forEach((el) => io.observe(el));
+
+/* ---- presets (same values as the app) ---- */
+const BANDS = [25, 40, 63, 100, 160, 250, 400, 630, 1000, 1600, 2500, 4000, 6300, 10000, 16000];
+const PRESETS = [
+  { n: 'TarkovFX Pro', locked: true, s: 'Flagship · all-round competitive', g: [-9, -8, -6, -3, -1, 0, -2.5, -1.5, 1, 3.5, 5, 4.5, 0, -1, -4],
+    d: 'Rumble and wind cut, footstep thump kept, 1.6–4 kHz texture lifted. Gentle 3:1 compression with auto release, so it never pumps while you sprint.' },
+  { n: 'Footstep Max', s: 'Steps above everything', g: [-12, -11, -9, -6, -2, 1, -2, 0, 1.5, 3.5, 6, 4, -1, -3, -6],
+    d: 'Heavy cut on wind and low rumble, extra lift at 2.5 kHz where steps and gear rattle sit, rain and wind hiss rolled off. Gunfire sounds thinner on purpose.' },
+  { n: 'Operator', s: 'The original config', g: [-5, -5, -4, -3, -2, -1, -2, 0, 2, 3, 3, 2, -3, 3, 0],
+    d: 'Cuts the low rumble, lifts the footstep and reload range, compresses gently and limits the loud stuff.' },
+  { n: 'Footstep Hunter', s: 'Aggressive mids', g: [-8, -8, -7, -5, -3, -2, -2, 0, 2, 4, 5, 4, 0, 2, 0],
+    d: 'Stronger cut under 160 Hz and a bigger boost from 1.6 to 4 kHz. Steps and gear rattle stand out more, explosions sound thinner.' },
+  { n: 'Balanced', s: 'Long-raid comfort', g: [-3, -3, -2, -1, -1, 0, -1, 0, 1, 2, 2, 1, -1, 1, 0],
+    d: 'A milder take that keeps more of the low end. Easy on the ears for long sessions.' },
+  { n: 'Indoor CQB', s: 'Labs · Interchange · Reserve', g: [-6, -6, -5, -3, -2, -3, -4, -2, 1, 3, 4, 3, -2, 2, 0],
+    d: 'Pulls down boomy 250–630 Hz reverb so steps on hard floors cut through.' },
+  { n: 'Night Raid', s: 'For quiet-volume play', g: [-5, -5, -4, -3, -2, -1, -1, 0, 2, 3, 3, 2, -2, 2, 0],
+    d: 'Heavier compression for playing at low volume. Quiet sounds come up and gunfire stays tame.' },
+  { n: 'Flat / Bypass', s: 'A/B reference', g: BANDS.map(() => 0),
+    d: 'Flat EQ with both plugins off. Use it to hear exactly what the other presets are doing.' },
+];
+const W = 600, H = 240, PL = 34, PR = 14, PT = 14, PB = 26, R = 15;
+const fx = (f) => PL + (Math.log10(f) - Math.log10(20)) / 3 * (W - PL - PR);
+const gy = (g) => PT + (1 - (g + R) / (2 * R)) * (H - PT - PB);
+function interp(g, f) {
+  if (f <= BANDS[0]) return g[0]; if (f >= BANDS[14]) return g[14];
+  for (let i = 0; i < 14; i++) if (f <= BANDS[i + 1]) { const t = (Math.log(f) - Math.log(BANDS[i])) / (Math.log(BANDS[i + 1]) - Math.log(BANDS[i])); return g[i] + t * (g[i + 1] - g[i]); }
+}
+function pathFor(g, w, h, opt) {
+  const pts = []; const n = 120;
+  for (let i = 0; i <= n; i++) { const f = Math.pow(10, Math.log10(20) + i / n * 3); pts.push([fx(f) * (w / W), gy(interp(g, f)) * (h / H)]); }
+  return 'M' + pts.map((p) => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' L');
+}
+const svgNS = 'http://www.w3.org/2000/svg';
+(function grid() {
+  const gEl = document.getElementById('pvGrid'); let s = '';
+  for (let db = -15; db <= 15; db += 5) s += `<line x1="${PL}" x2="${W - PR}" y1="${gy(db)}" y2="${gy(db)}" stroke="${db === 0 ? '#3b4031' : '#1b1e17'}"/>` + (db % 15 === 0 || db === 0 ? `<text x="${PL - 6}" y="${gy(db) + 4}" fill="#5c5e52" font-size="11" text-anchor="end" font-family="Consolas,monospace">${db > 0 ? '+' : ''}${db}</text>` : '');
+  for (const f of [50, 100, 200, 500, 1000, 2000, 5000, 10000]) s += `<line y1="${PT}" y2="${H - PB}" x1="${fx(f)}" x2="${fx(f)}" stroke="#1b1e17"/><text x="${fx(f)}" y="${H - 8}" fill="#5c5e52" font-size="11" text-anchor="middle" font-family="Consolas,monospace">${f >= 1000 ? f / 1000 + 'k' : f}</text>`;
+  s += `<rect x="${fx(630)}" y="${PT}" width="${fx(2500) - fx(630)}" height="${H - PT - PB}" fill="rgba(210,187,131,.05)"/>`;
+  gEl.innerHTML = s;
+})();
+function show(i) {
+  const p = PRESETS[i];
+  document.querySelectorAll('.pitem').forEach((el, j) => el.classList.toggle('on', j === i));
+  document.getElementById('pvName').textContent = p.n;
+  document.getElementById('pvNote').textContent = p.d;
+  document.getElementById('pvKind').textContent = (p.locked ? 'Locked · ' : '') + 'Slot ' + (i + 1);
+  document.getElementById('pvHk').textContent = 'Ctrl+Alt+' + (i + 1);
+  const line = pathFor(p.g, W, H);
+  document.getElementById('pvLine').setAttribute('d', line);
+  document.getElementById('pvFill').setAttribute('d', line + ` L${W - PR} ${gy(0)} L${PL} ${gy(0)} Z`);
+  document.getElementById('pvDots').innerHTML = BANDS.map((f, k) => `<circle cx="${fx(f)}" cy="${gy(p.g[k])}" r="4" fill="#0b0c09" stroke="#dcc590" stroke-width="1.6"/>`).join('');
+}
+(function list() {
+  const box = document.getElementById('plist');
+  PRESETS.forEach((p, i) => {
+    const b = document.createElement('button'); b.className = 'pitem'; b.type = 'button';
+    b.innerHTML = `<span class="slot">${i + 1}</span><span><b>${p.n}${p.locked ? '<span class="lk">LOCKED</span>' : ''}</b><small>${p.s}</small></span>
+      <svg viewBox="0 0 120 34"><line x1="0" x2="120" y1="17" y2="17" stroke="#2a2e23"/><path d="${pathFor(p.g, 120, 34)}" fill="none" stroke="#d2bb83" stroke-width="1.6"/></svg>`;
+    b.addEventListener('click', () => show(i)); box.append(b);
+  });
+  show(0);
+})();
+
+/* ---- animated wave behind the final CTA ---- */
+(function wave() {
+  const el = document.getElementById('finalWave'); if (!el) return;
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) { el.setAttribute('d', 'M0 80 L1200 80'); return; }
+  let t = 0;
+  (function frame() {
+    t += 0.012; let d = '';
+    for (let x = 0; x <= 1200; x += 8) {
+      const y = 80 + Math.sin(x * .012 + t) * 22 * Math.sin(x * .002 + t * .4) + Math.sin(x * .05 - t * 2) * 5;
+      d += (x ? ' L' : 'M') + x + ' ' + y.toFixed(1);
+    }
+    el.setAttribute('d', d); requestAnimationFrame(frame);
+  })();
+})();
+</script>
+</body>
+</html>
